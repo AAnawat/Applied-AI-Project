@@ -2,6 +2,8 @@ import streamlit as st
 
 from climate import SENTIMENT_ORDER, filtered_data, require_data
 
+REVIEW_THRESHOLD = 0.65
+
 st.title("Feedback Explorer")
 df = filtered_data()
 require_data(df)
@@ -10,7 +12,14 @@ c1, c2, c3 = st.columns([1, 1, 2])
 sentiments = c1.multiselect("Sentiment", SENTIMENT_ORDER, placeholder="All")
 categories = c2.multiselect("Category", sorted(df["category"].unique()), placeholder="All")
 query = c3.text_input("Search text", placeholder="e.g. โอที, เงินเดือน")
+review = st.toggle(
+    f"Only low-confidence predictions (below {REVIEW_THRESHOLD:.2f})",
+    help="The sentiment model was trained on social-media text, so it is least sure about polite, indirect "
+         "workplace comments. These are the rows worth a human check.",
+)
 
+if review:
+    df = df[df["confidence"] < REVIEW_THRESHOLD]
 if sentiments:
     df = df[df["sentiment"].isin(sentiments)]
 if categories:
@@ -29,9 +38,11 @@ with st.expander("Sort options", expanded=False):
         "Category": "category",
     }
 
+    # Review mode starts on least-confident first
     selected_label = sort_col.selectbox(
         "Sort by",
         options=list(sort_options.keys()),
+        index=1 if review else 0,
     )
 
     sort_by = sort_options[selected_label]
@@ -39,6 +50,7 @@ with st.expander("Sort options", expanded=False):
     order = sort_order.selectbox(
         "Order",
         ["Descending", "Ascending"],
+        index=1 if review else 0,
     )
 
     df = df.sort_values(
@@ -67,7 +79,7 @@ st.dataframe(
     height=520,
     column_config={
         "date": st.column_config.DateColumn("Date"),
-        "confidence": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=1, format="%.2f"),
+        "confidence": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=1, format="%.2f", color="gray"),
         "feedback": st.column_config.TextColumn("Feedback", width="large"),
     },
 )
