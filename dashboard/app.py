@@ -2,22 +2,22 @@
 
 import streamlit as st
 
-from climate import get_data
+from climate import MIN_RESPONSES, get_data
 
-st.set_page_config(page_title="ClimateLens", page_icon="🌡️", layout="wide")
+st.set_page_config(page_title="ClimateLens", page_icon="", layout="wide")
 
 pages = st.navigation(
     [
-        st.Page("views/overview.py", title="Overview", icon="📊", default=True),
-        st.Page("views/departments.py", title="Departments", icon="🏢"),
-        st.Page("views/trends.py", title="Trends", icon="📈"),
-        st.Page("views/feedback.py", title="Feedback Explorer", icon="💬"),
-        st.Page("views/upload.py", title="Upload & Analyze", icon="📤"),
+        st.Page("views/overview.py", title="Overview", icon="", default=True),
+        st.Page("views/departments.py", title="Departments", icon=""),
+        st.Page("views/trends.py", title="Trends", icon=""),
+        st.Page("views/feedback.py", title="Feedback Explorer", icon=""),
+        st.Page("views/upload.py", title="Upload & Analyze", icon=""),
     ]
 )
 
 with st.sidebar:
-    st.title("🌡️ ClimateLens")
+    st.title("ClimateLens")
     st.caption("Organizational Climate Assessment")
 
     sources = ["Mock data", "Uploaded"] if "uploaded_df" in st.session_state else ["Mock data"]
@@ -41,5 +41,15 @@ with st.sidebar:
 
     if source == "Mock data":
         st.info("Showing generated mock data. Real model results will replace it.", icon="ℹ️")
+
+    with st.expander("About the numbers"):
+        st.markdown(
+            "**Climate Index** = 50 + 50 × (positive − negative) / responses.  \n"
+            "🟢 ≥ 60 Healthy · 🟡 45–60 Watch · 🔴 < 45 Needs attention · "
+            f"⚪ fewer than {MIN_RESPONSES} responses (no status).\n\n"
+            "**Sentiment model:** TF-IDF + Logistic Regression, macro-F1 0.67 on Wisesight (social-media text). "
+            "Expect lower accuracy on polite, indirect workplace comments.\n\n"
+            "**Topics:** LLM categorizer (in progress)."
+        )
 
 pages.run()
