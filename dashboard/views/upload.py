@@ -29,7 +29,8 @@ if "feedback" not in raw.columns:
     st.error(f"Missing `feedback` column. Found: {', '.join(raw.columns)}")
     st.stop()
 
-df = raw.copy()
+df = raw[raw["feedback"].fillna("").astype(str).str.strip() != ""].copy()
+skipped = len(raw) - len(df)
 df["department"] = df["department"].fillna("Unknown") if "department" in df else "Unknown"
 df["date"] = pd.to_datetime(df["date"], errors="coerce") if "date" in df else pd.NaT
 df["date"] = df["date"].fillna(pd.Timestamp.today().normalize())
@@ -39,14 +40,22 @@ df.insert(0, "response_id", [f"U{i:05d}" for i in range(1, len(df) + 1)])
 with st.spinner("Classifying responses..."):
     df = df.join(classify(df["feedback"]))
 
-st.success(f"Analyzed {len(df):,} responses.")
+st.success(f"Analyzed {len(df):,} responses." + (f" Skipped {skipped} empty rows." if skipped else ""))
+c1, c2, c3 = st.columns(3)
+c1.metric("Departments", df["department"].nunique(), help=", ".join(sorted(df["department"].unique())), border=True)
+c2.metric("Months", df["month"].nunique(), f"{df['month'].min()} → {df['month'].max()}", delta_color="off", border=True)
+c3.metric("Low-confidence rows", int((df["confidence"] < 0.65).sum()), help="Worth a human check", border=True)
 st.dataframe(df[["response_id", "date", "department", "category", "sentiment", "confidence", "feedback"]],
              hide_index=True, width="stretch")
 
-c1, c2 = st.columns(2)
-if c1.button("Use this data in the dashboard", type="primary"):
-    st.session_state["uploaded_df"] = df
+
+def use_uploaded(data: pd.DataFrame) -> None:
+    # Runs before the next rerun, i.e. before the sidebar radio is created
+    st.session_state["uploaded_df"] = data
     st.session_state["data_source"] = "Uploaded"
-    st.rerun()
+
+
+c1, c2 = st.columns(2)
+c1.button("Use this data in the dashboard", type="primary", on_click=use_uploaded, args=(df,))
 c2.download_button("Download results", df.to_csv(index=False).encode("utf-8-sig"),
                    "climatelens_results.csv", "text/csv")

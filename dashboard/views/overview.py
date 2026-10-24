@@ -1,100 +1,127 @@
-import plotly.express as px
+import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 from climate import (
-    SENTIMENT_COLORS,
-    SENTIMENT_ORDER,
-    STATUS_COLORS,
+    INDEX_BAR_COLOR,
+    INDEX_COLORSCALE,
+    MIN_RESPONSES,
     climate_index,
-    climate_status,
+    compare_windows,
     filtered_data,
     require_data,
+    split_windows,
+    status_label,
     summarize,
+    window_label,
 )
 
 st.title("Organizational Climate Overview")
 df = filtered_data()
 require_data(df)
 
-months = sorted(df["month"].unique())
-latest = df[df["month"] == months[-1]]
-previous = df[df["month"] == months[-2]] if len(months) > 1 else None
+current, previous, cur_months, prev_months = split_windows(df)
 
-ci_all = climate_index(df["sentiment"])
-ci_latest = climate_index(latest["sentiment"])
-ci_delta = ci_latest - climate_index(previous["sentiment"]) if previous is not None else None
-neg_pct = (df["sentiment"] == "Negative").mean() * 100
 
-dept_latest = summarize(latest, "department")
-attention = dept_latest[dept_latest["status"] == "Needs attention"].sort_values("climate_index")
+def fmt_change(v: float) -> str:
+    return "–" if v != v else f"{v:+.0f}"
+
+
+st.caption(
+    f"Comparing the latest 3 months (**{window_label(cur_months)}**) with the 3 months before "
+    f"(**{window_label(prev_months)}**). Single months are too noisy to compare."
+)
+
+# --- Headline numbers: all four use the same window --------------------------------------------
+ci_now = climate_index(current["sentiment"])
+ci_prev = climate_index(previous["sentiment"]) if not previous.empty else None
+neg_now = (current["sentiment"] == "Negative").mean() * 100
+neg_prev = (previous["sentiment"] == "Negative").mean() * 100 if not previous.empty else None
+
+cells = compare_windows(df, ["department", "category"])
+hotspots = cells[cells["status"] == "Needs attention"].sort_values("climate_index")
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Responses", f"{len(df):,}", help="Survey responses in the selected period")
-c2.metric(
-    f"Climate Index ({months[-1]})",
-    f"{ci_latest:.1f}",
-    f"{ci_delta:+.1f} vs prev. month" if ci_delta is not None else None,
-    help="50 + 50 × (positive − negative) / responses. 0–100, 50 = balanced.",
-)
-c3.metric("Negative feedback", f"{neg_pct:.1f}%")
-c4.metric("Depts needing attention", len(attention), help=f"Climate Index below threshold in {months[-1]}")
+c1.metric("Climate Index", f"{ci_now:.1f}", f"{ci_now - ci_prev:+.1f}" if ci_prev is not None else None,
+          help="50 + 50 × (positive − negative) / responses. 0–100, 50 = balanced.", border=True)
+c2.metric("Negative feedback", f"{neg_now:.1f}%", f"{neg_now - neg_prev:+.1f} pts" if neg_prev is not None else None,
+          delta_color="inverse", border=True)
+c3.metric("Responses", f"{len(current):,}", help="Survey responses in the latest 3 months", border=True)
+c4.metric("Hotspots", len(hotspots), help="Department × topic pairs with a Climate Index below 45", border=True)
 
-if not attention.empty:
-    names = ", ".join(f"**{r.department}** ({r.climate_index:.0f})" for r in attention.itertuples())
-    st.error(f"Needs attention in {months[-1]}: {names}", icon="⚠️")
+# --- Where to look first ------------------------------------------------------------------------
+st.subheader("Where to look first")
+if hotspots.empty:
+    st.success("No department × topic pair is below the attention threshold.", icon="✅")
+else:
+    negatives = current[current["sentiment"] == "Negative"].sort_values("confidence", ascending=False)
 
-left, right = st.columns([1, 2])
-with left:
-    st.subheader("Sentiment distribution")
-    counts = df["sentiment"].value_counts().reindex(SENTIMENT_ORDER, fill_value=0).reset_index()
-    fig = px.pie(counts, names="sentiment", values="count", hole=0.55, color="sentiment",
-                 color_discrete_map=SENTIMENT_COLORS)
-    fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), legend=dict(orientation="h", y=-0.1))
+    def example(row) -> str:
+        match = negatives[(negatives["department"] == row.department) & (negatives["category"] == row.category)]
+        return match["feedback"].iloc[0] if not match.empty else ""
+
+    top = hotspots.head(5).copy()
+    top["example"] = [example(r) for r in top.itertuples()]
+    top["change"] = top["change"].map(fmt_change)
+    st.dataframe(
+        top[["department", "category", "climate_index", "change", "responses", "example"]],
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "department": "Department",
+            "category": "Topic",
+            "climate_index": st.column_config.ProgressColumn("Climate Index", min_value=0, max_value=100, format="%.0f", color=INDEX_BAR_COLOR),
+            "change": "vs prev. 3 months",
+            "responses": "Responses",
+            "example": st.column_config.TextColumn("Typical negative comment", width="large"),
+        },
+    )
+
+# --- Department × topic heatmap -----------------------------------------------------------------
+months = sorted(df["month"].unique())
+st.subheader("Climate Index by department and topic")
+st.caption(f"Whole selected period (**{window_label([months[0], months[-1]])}**): three months split across seven "
+           "topics leaves too few responses per cell.")
+grid = summarize(df, ["department", "category"])
+by_cat = summarize(df, "category").assign(department="All departments")
+grid = pd.concat([grid, by_cat], ignore_index=True)
+ci = grid.pivot(index="department", columns="category", values="climate_index")
+n = grid.pivot(index="department", columns="category", values="responses").reindex_like(ci)
+order = [d for d in ci.index if d != "All departments"] + ["All departments"]
+ci, n = ci.loc[order], n.loc[order]
+masked = ci.where(n >= MIN_RESPONSES)
+
+if masked.isna().all().all():
+    st.info(f"Not enough responses yet: every cell has fewer than {MIN_RESPONSES}.", icon="ℹ️")
+else:
+    fig = go.Figure(go.Heatmap(
+        z=masked.values, x=list(ci.columns), y=list(ci.index), zmin=20, zmax=80, zmid=50,
+        colorscale=INDEX_COLORSCALE, xgap=2, ygap=2,
+        text=[[f"{v:.0f}" if v == v else "–" for v in row] for row in masked.values], texttemplate="%{text}",
+        customdata=n.values, colorbar=dict(title="Index"),
+        hovertemplate="%{y} · %{x}<br>Climate Index %{z:.1f}<br>%{customdata} responses<extra></extra>",
+    ))
+    fig.update_yaxes(autorange="reversed")
+    fig.update_layout(height=420, margin=dict(t=10, b=10))
     st.plotly_chart(fig, width="stretch")
+st.caption(f"Red = more negative than positive, blue = more positive. “–” = fewer than {MIN_RESPONSES} responses.")
 
-with right:
-    st.subheader("Climate Index by category")
-    by_cat = summarize(df, "category").sort_values("climate_index")
-    fig = px.bar(by_cat, x="climate_index", y="category", orientation="h", color="status",
-                 color_discrete_map=STATUS_COLORS, text=by_cat["climate_index"].round(1),
-                 hover_data={"responses": True, "negative_pct": ":.1f"},
-                 labels={"climate_index": "Climate Index", "category": ""})
-    fig.update_layout(xaxis_range=[0, 100], margin=dict(t=10, b=10), legend_title_text="")
-    st.plotly_chart(fig, width="stretch")
-
-left, right = st.columns([2, 1])
-with left:
-    st.subheader("Monthly Climate Index")
-    trend = summarize(df, "month")
-    fig = px.line(trend, x="month", y="climate_index", markers=True,
-                  labels={"climate_index": "Climate Index", "month": ""})
-    fig.add_hrect(y0=0, y1=45, fillcolor=STATUS_COLORS["Needs attention"], opacity=0.07, line_width=0)
-    fig.add_hrect(y0=45, y1=60, fillcolor=STATUS_COLORS["Watch"], opacity=0.07, line_width=0)
-    fig.update_layout(yaxis_range=[20, 80], margin=dict(t=10, b=10))
-    st.plotly_chart(fig, width="stretch")
-
-with right:
-    st.subheader("Top negative themes")
-    negatives = df[df["sentiment"] == "Negative"]
-    for category, count in negatives["category"].value_counts().head(4).items():
-        example = negatives.loc[negatives["category"] == category, "feedback"].mode().iloc[0]
-        with st.container(border=True):
-            st.markdown(f"**{category}** · {count} negative responses")
-            st.caption(f"“{example}”")
-
-st.subheader("Department snapshot")
-dept_all = summarize(df, "department").sort_values("climate_index")
+# --- Department table ---------------------------------------------------------------------------
+st.subheader("Departments")
+depts = compare_windows(df, "department").sort_values("climate_index")
+depts["status"] = depts["status"].map(status_label)
+depts["change"] = depts["change"].map(fmt_change)
 st.dataframe(
-    dept_all,
+    depts[["department", "status", "climate_index", "change", "responses", "positive_pct", "negative_pct"]],
     hide_index=True,
     width="stretch",
     column_config={
         "department": "Department",
-        "responses": "Responses",
-        "positive_pct": st.column_config.NumberColumn("Positive %", format="%.1f"),
-        "neutral_pct": st.column_config.NumberColumn("Neutral %", format="%.1f"),
-        "negative_pct": st.column_config.NumberColumn("Negative %", format="%.1f"),
-        "climate_index": st.column_config.ProgressColumn("Climate Index", min_value=0, max_value=100, format="%.1f"),
         "status": "Status",
+        "climate_index": st.column_config.ProgressColumn("Climate Index", min_value=0, max_value=100, format="%.1f", color=INDEX_BAR_COLOR),
+        "change": "vs prev. 3 months",
+        "responses": "Responses",
+        "positive_pct": st.column_config.NumberColumn("Positive %", format="%.0f"),
+        "negative_pct": st.column_config.NumberColumn("Negative %", format="%.0f"),
     },
 )
