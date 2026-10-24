@@ -4,6 +4,7 @@ import streamlit as st
 
 from climate import (
     HEALTHY_THRESHOLD,
+    INDEX_BAR_COLOR,
     SENTIMENT_COLORS,
     SENTIMENT_ORDER,
     STATUS_COLORS,
@@ -93,6 +94,6 @@ for tab, sentiment in [(neg_tab, "Negative"), (pos_tab, "Positive")]:
                      column_config={
                          "category": "Topic",
                          "feedback": st.column_config.TextColumn("Comment", width="large"),
-                         "confidence": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=1, format="%.2f", color="gray"),
+                         "confidence": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=1, format="%.2f", color=INDEX_BAR_COLOR),
                          "date": st.column_config.DateColumn("Date"),
                      })

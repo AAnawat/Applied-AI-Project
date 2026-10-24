@@ -1,3 +1,4 @@
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
@@ -118,18 +119,34 @@ if extremes:
     )
 
 # --- Sentiment share ------------------------------------------------------------------------------
-st.subheader("Sentiment share by month")
-share = (
-    df.groupby("month")["sentiment"]
-    .value_counts(normalize=True)
-    .mul(100)
-    .rename("share")
-    .reset_index()
-)
-fig = px.area(share, x="month", y="share", color="sentiment", category_orders={"sentiment": SENTIMENT_ORDER},
-              color_discrete_map=SENTIMENT_COLORS, labels={"share": "% of responses", "month": ""})
-fig.update_layout(yaxis_range=[0, 100], margin=dict(t=10, b=10), legend_title_text="")
+# One line per sentiment, each read from zero (a stacked area only lets you read the bottom band)
+st.subheader("Sentiment share over time")
+share = rolling_index(df).melt(id_vars="month", value_vars=["positive_pct", "neutral_pct", "negative_pct"],
+                               var_name="sentiment", value_name="share")
+share["sentiment"] = share["sentiment"].str.replace("_pct", "").str.title()
+fig = px.line(share, x="month", y="share", color="sentiment", markers=True,
+              category_orders={"sentiment": SENTIMENT_ORDER}, color_discrete_map=SENTIMENT_COLORS,
+              labels={"share": "% of responses", "month": "", "sentiment": ""})
+fig.update_traces(line_width=2, marker_size=8, hovertemplate="%{y:.1f}%")
+
+# Direct labels at the line ends, nudged apart so close values don't overlap
+top = share["share"].max() * 1.15
+gap = top * 0.07
+last = share[share["month"] == share["month"].max()].sort_values("share", ascending=False)
+label_y = []
+for value in last["share"]:
+    label_y.append(min(value, label_y[-1] - gap) if label_y else value)
+for row, y in zip(last.itertuples(), label_y):
+    fig.add_annotation(x=row.month, y=y, text=f"{row.sentiment} {row.share:.0f}%", showarrow=False,
+                       xanchor="left", xshift=12)
+
+fig.update_yaxes(range=[0, top], ticksuffix="%")
+first, final = pd.Timestamp(share["month"].min()), pd.Timestamp(share["month"].max())
+fig.update_xaxes(range=[first - pd.Timedelta(days=10), final + pd.Timedelta(days=10)], dtick="M1", tickformat="%b")
+fig.update_layout(hovermode="x unified", margin=dict(t=10, b=10, r=120),
+                  legend=dict(orientation="h", y=1.08, x=0))
 st.plotly_chart(fig, width="stretch")
+st.caption("3-month rolling share. Hover a month to see all three values.")
 
 pct = current["sentiment"].value_counts(normalize=True).mul(100).reindex(SENTIMENT_ORDER, fill_value=0)
 st.info(

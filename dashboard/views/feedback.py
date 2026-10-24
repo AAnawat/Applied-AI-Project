@@ -1,6 +1,6 @@
 import streamlit as st
 
-from climate import SENTIMENT_ORDER, filtered_data, require_data
+from climate import INDEX_BAR_COLOR, SENTIMENT_ORDER, filtered_data, require_data
 
 REVIEW_THRESHOLD = 0.65
 
@@ -79,7 +79,7 @@ st.dataframe(
     height=520,
     column_config={
         "date": st.column_config.DateColumn("Date"),
-        "confidence": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=1, format="%.2f", color="gray"),
+        "confidence": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=1, format="%.2f", color=INDEX_BAR_COLOR),
         "feedback": st.column_config.TextColumn("Feedback", width="large"),
     },
 )
