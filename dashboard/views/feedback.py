@@ -18,7 +18,48 @@ if categories:
 if query:
     df = df[df["feedback"].str.contains(query, case=False, regex=False)]
 
+with st.expander("Sort options", expanded=False):
+    sort_col, sort_order = st.columns(2)
+
+    sort_options = {
+        "Date": "date",
+        "Confidence": "confidence",
+        "Sentiment": "sentiment",
+        "Department": "department",
+        "Category": "category",
+    }
+
+    selected_label = sort_col.selectbox(
+        "Sort by",
+        options=list(sort_options.keys()),
+    )
+
+    sort_by = sort_options[selected_label]
+
+    order = sort_order.selectbox(
+        "Order",
+        ["Descending", "Ascending"],
+    )
+
+    df = df.sort_values(
+        by=sort_by,
+        ascending=(order == "Ascending"),
+        na_position="last",
+        kind="stable",
+    )
+
 st.caption(f"{len(df):,} responses")
+
+total = len(df)
+negative_count = (df["sentiment"] == "Negative").sum()
+positive_count = (df["sentiment"] == "Positive").sum()
+
+m1, m2, m3 = st.columns(3)
+m1.metric("Total Responses", f"{total:,}")
+m2.metric("Positive", f"{positive_count:,}")
+m3.metric("Negative", f"{negative_count:,}")
+
+
 st.dataframe(
     df[["response_id", "date", "department", "category", "sentiment", "confidence", "feedback"]],
     hide_index=True,

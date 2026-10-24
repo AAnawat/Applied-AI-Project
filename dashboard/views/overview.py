@@ -13,6 +13,15 @@ from climate import (
 )
 
 st.title("Organizational Climate Overview")
+
+st.caption(
+    "Climate Index measures overall employee sentiment on a scale "
+    "of 0–100, based on positive and negative feedback. "
+    "A score of 50 indicates a balance between positive and negative "
+    "sentiment; above 50 indicates more positive sentiment, while "
+    "below 50 indicates more negative sentiment."
+)
+
 df = filtered_data()
 require_data(df)
 
