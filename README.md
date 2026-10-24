@@ -13,9 +13,13 @@ python -m pip install -r requirements.txt
 python -m streamlit run dashboard/app.py
 ```
 
-The dashboard's upload page currently uses a keyword placeholder.
-The prediction command described below uses the exported sentiment model.
-The dashboard has not yet been migrated to load the database views.
+The Upload & Analyze page and prediction command use the exported sentiment model.
+Topic categories in the upload page still use temporary keyword matching.
+After uploading a CSV, review the results, enter a survey batch name and click
+**Save to Supabase**. The page shows the database batch ID on success and disables
+repeat saves of the same file/name within that session. Merely selecting a file or
+clicking **Use this data in the dashboard** does not save it to the database.
+The dashboard displays session/mock data; it does not yet reload historical database views.
 
 ## Model
 
@@ -59,6 +63,12 @@ The real secrets file is ignored by Git. In Streamlit hosting, set the same TOML
 in the app's Secrets settings. Restart after editing. Connection uses
 `st.secrets`, `create_client()` and `@st.cache_resource`, like the Week 12 lab.
 The old `.env` configuration is not used.
+
+If saving fails with database code `42501`, the configured key does not have write
+access under the current policies/grants. Use the project's backend Secret key or
+legacy service_role key for this trusted server. A publishable key is rejected by
+the save connection. Never paste the secret into chat or commit it to Git.
+Restart Streamlit after changing credentials.
 
 No anonymous/browser access is granted by the schema. Use the backend
 secret/service-role key in trusted Python code only. This does not implement user

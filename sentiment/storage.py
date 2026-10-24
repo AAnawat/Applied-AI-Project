@@ -25,6 +25,12 @@ def init_connection() -> "Client":
     if not isinstance(url, str) or not isinstance(key, str) or not url.strip() or not key.strip():
         raise ValueError("supabase_url and supabase_key must be non-empty strings.")
 
+    if key.startswith("sb_publishable_"):
+        raise ValueError(
+            "The configured Supabase key is publishable. Saving from this backend "
+            "requires the project Secret key or legacy service_role key. Update "
+            "supabase_key in .streamlit/secrets.toml and restart Streamlit."
+        )
     return create_client(url, key)
 
 
@@ -205,11 +211,17 @@ def save_predictions(results, *, batch_name="Survey upload", client=None):
         if _returned_id(saved) != batch_id or saved.data[0].get("row_count") != len(records):
             raise RuntimeError("Could not confirm the completed row count.")
 
-    except Exception:
+    except Exception as error:
+        permission_hint = (
+            " Supabase denied write access (42501). Check the backend secret/service_role "
+            "key and database grants."
+            if str(getattr(error, "code", "")) == "42501" else ""
+        )
         if batch_id is None:
             raise RuntimeError(
                 "Could not confirm creation of the survey batch. Check survey_batches "
                 "before retrying; the request may have reached the database."
+                + permission_hint
             ) from None
 
         try:
