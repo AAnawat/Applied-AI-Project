@@ -3,11 +3,11 @@
 import copy
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
-from sentiment.storage import save_predictions
+from sentiment.storage import init_connection, save_predictions
 
 
 class FakeSupabase:
@@ -173,6 +173,17 @@ class StorageTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 save_predictions(frame)
             connect.assert_not_called()
+
+    def test_publishable_key_is_rejected_before_connecting(self):
+        factory = MagicMock()
+        sdk = SimpleNamespace(create_client=factory)
+        with patch.dict("sys.modules", {"supabase": sdk}), patch(
+            "sentiment.storage.st.secrets",
+            {"supabase_url": "https://example.supabase.co", "supabase_key": "sb_publishable_test"},
+        ):
+            with self.assertRaisesRegex(ValueError, "Secret key"):
+                init_connection.__wrapped__()
+        factory.assert_not_called()
 
     def test_duplicate_file_is_a_separate_upload(self):
         db = FakeSupabase()
