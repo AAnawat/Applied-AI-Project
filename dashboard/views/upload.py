@@ -31,6 +31,10 @@ if "feedback" not in raw.columns:
 
 df = raw[raw["feedback"].fillna("").astype(str).str.strip() != ""].copy()
 skipped = len(raw) - len(df)
+if df.empty:
+    st.warning("No non-empty feedback responses were found. Add at least one response and upload the CSV again.")
+    st.stop()
+
 df["department"] = df["department"].fillna("Unknown") if "department" in df else "Unknown"
 df["date"] = pd.to_datetime(df["date"], errors="coerce") if "date" in df else pd.NaT
 df["date"] = df["date"].fillna(pd.Timestamp.today().normalize())

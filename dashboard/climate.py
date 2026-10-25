@@ -28,12 +28,20 @@ WINDOW_MONTHS = 3
 def load_mock_data() -> pd.DataFrame:
     return generate_mock_data()
 
+@st.cache_data
+def empty_df() -> pd.DataFrame:
+    """Return an empty DataFrame with the same columns as the mock data."""
+    return pd.DataFrame(columns=[
+        "response_id", "feedback", "department", "date",
+        "month", "category", "sentiment", "confidence",
+    ])
+
 
 def get_data() -> pd.DataFrame:
     """The dataset currently selected in the sidebar (mock or uploaded)."""
     if st.session_state.get("data_source") == "Uploaded" and "uploaded_df" in st.session_state:
         return st.session_state["uploaded_df"]
-    return load_mock_data()
+    return empty_df()
 
 
 def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
@@ -142,5 +150,9 @@ def _as_list(by) -> list:
 
 def require_data(df: pd.DataFrame) -> None:
     if df.empty:
-        st.warning("No responses match the current filters.")
+        if get_data().empty:
+            st.info("There are no survey responses to analyze yet. Upload a CSV to get started.")
+            st.page_link("views/upload.py", label="Upload survey data", icon="📤")
+        else:
+            st.warning("No responses match the current filters. Try clearing or broadening your filters.")
         st.stop()
