@@ -1,5 +1,8 @@
 # Topic categorization
 
+For the isolated Typhoon QLoRA experiment and Colab notebook, see
+[finetuning/README.md](finetuning/README.md). The web application is unchanged.
+
 Assigns each Thai feedback response exactly one topic code, using a local model
 served by [Ollama](https://ollama.com). The codes match `categories.code` in the database:
 

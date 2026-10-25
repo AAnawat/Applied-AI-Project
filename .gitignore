@@ -8,3 +8,5 @@ __pycache__/
 .streamlit/secrets.toml
 reports/
 outputs/
+# Reviewed feedback, prepared splits and model outputs stay local by default.
+categorization/data/finetuning/

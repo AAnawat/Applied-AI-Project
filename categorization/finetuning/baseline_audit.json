@@ -1,0 +1,145 @@
+{
+  "source_run": "categorization/results/climatelens_105_hf.co-typhoon-ai-typhoon2.5-qwen3-4b-gguf-Q4_K_M_20261025-151807",
+  "source_model": "hf.co/typhoon-ai/typhoon2.5-qwen3-4b-gguf:Q4_K_M",
+  "source_rows": 105,
+  "zero_correct": 91,
+  "few_correct": 92,
+  "few_fixed": 6,
+  "few_regressed": 5,
+  "zero_shot_metrics": {
+    "responses": 105,
+    "accuracy": 0.8666666666666667,
+    "macro_f1": 0.8668043948134571,
+    "weighted_f1": 0.8668043948134573,
+    "invalid_rate": 0.0,
+    "mean_seconds": 0.4787229400006167,
+    "p95_seconds": 0.5528210199903697,
+    "per_class": {
+      "welfare": {
+        "precision": 1.0,
+        "recall": 0.7333333333333333,
+        "f1-score": 0.8461538461538461,
+        "support": 15.0
+      },
+      "compensation": {
+        "precision": 0.8235294117647058,
+        "recall": 0.9333333333333333,
+        "f1-score": 0.875,
+        "support": 15.0
+      },
+      "management": {
+        "precision": 0.9285714285714286,
+        "recall": 0.8666666666666667,
+        "f1-score": 0.896551724137931,
+        "support": 15.0
+      },
+      "workload": {
+        "precision": 0.7368421052631579,
+        "recall": 0.9333333333333333,
+        "f1-score": 0.8235294117647058,
+        "support": 15.0
+      },
+      "environment": {
+        "precision": 0.9375,
+        "recall": 1.0,
+        "f1-score": 0.967741935483871,
+        "support": 15.0
+      },
+      "career": {
+        "precision": 1.0,
+        "recall": 0.7333333333333333,
+        "f1-score": 0.8461538461538461,
+        "support": 15.0
+      },
+      "communication": {
+        "precision": 0.7647058823529411,
+        "recall": 0.8666666666666667,
+        "f1-score": 0.8125,
+        "support": 15.0
+      }
+    },
+    "ollama_memory": {
+      "size_bytes": 3232917093,
+      "vram_bytes": 2333228400
+    }
+  },
+  "few_shot_metrics": {
+    "responses": 105,
+    "accuracy": 0.8761904761904762,
+    "macro_f1": 0.8861572066720644,
+    "weighted_f1": 0.8861572066720643,
+    "invalid_rate": 0.0,
+    "mean_seconds": 0.45536050000338857,
+    "p95_seconds": 0.6194859600393101,
+    "per_class": {
+      "welfare": {
+        "precision": 0.9230769230769231,
+        "recall": 0.8,
+        "f1-score": 0.8571428571428571,
+        "support": 15.0
+      },
+      "compensation": {
+        "precision": 1.0,
+        "recall": 0.9333333333333333,
+        "f1-score": 0.9655172413793104,
+        "support": 15.0
+      },
+      "management": {
+        "precision": 0.9230769230769231,
+        "recall": 0.8,
+        "f1-score": 0.8571428571428571,
+        "support": 15.0
+      },
+      "workload": {
+        "precision": 0.8666666666666667,
+        "recall": 0.8666666666666667,
+        "f1-score": 0.8666666666666667,
+        "support": 15.0
+      },
+      "environment": {
+        "precision": 0.9375,
+        "recall": 1.0,
+        "f1-score": 0.967741935483871,
+        "support": 15.0
+      },
+      "career": {
+        "precision": 1.0,
+        "recall": 0.8,
+        "f1-score": 0.8888888888888888,
+        "support": 15.0
+      },
+      "communication": {
+        "precision": 0.7,
+        "recall": 0.9333333333333333,
+        "f1-score": 0.8,
+        "support": 15.0
+      }
+    },
+    "ollama_memory": {
+      "size_bytes": 3232917093,
+      "vram_bytes": 2333228400
+    }
+  },
+  "limitations": [
+    "Development benchmark selected the model; it is not an untouched final test.",
+    "Original Macro F1 averages 7 answer-key classes; other has no gold examples.",
+    "Latency includes separate mean and p95; 3.2GB is inference memory, not training VRAM.",
+    "Development review CSV is not new training data."
+  ],
+  "source_commit": "54695cd666b48b32275801dfe20b895b155ebf11",
+  "ollama_settings": {
+    "temperature": 0,
+    "think": false,
+    "num_ctx": 2048,
+    "stream": false,
+    "format": "JSON Schema category enum",
+    "few_shot_examples": 8
+  },
+  "source_code_sha256": {
+    "categorization/core/llm.py": "2180147000cc94dedf0a74b5f49047966763845ebf8935506718fd24a18d9b5e",
+    "categorization/core/examples.py": "8c3c3e508fd29d8d0e1f8de2250bbdef984f14b5f36ea9b4ba2243fce64e6372",
+    "categorization/core/taxonomy.py": "aa1ce4a183900bf88d0779dde8bcb42c2c0ed5d915fdb56a1baf649415d97354",
+    "categorization/core/scoring.py": "2827780559746989db5b61a46bf1587f5398ce64a7f4075492112aa89d9995fd"
+  },
+  "original_model_digest_available": false
+}
