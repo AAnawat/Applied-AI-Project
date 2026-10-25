@@ -1,0 +1,121 @@
+{
+  "exam": "climatelens_105",
+  "model": "qwen3:4b",
+  "run_at": "2026-10-25T15:15:25",
+  "methods": {
+    "zero-shot": {
+      "responses": 105,
+      "accuracy": 0.819047619047619,
+      "macro_f1": 0.8217062903520079,
+      "weighted_f1": 0.8217062903520077,
+      "invalid_rate": 0.0,
+      "mean_seconds": 0.7605272980894716,
+      "p95_seconds": 0.7972584600327537,
+      "per_class": {
+        "welfare": {
+          "precision": 1.0,
+          "recall": 0.7333333333333333,
+          "f1-score": 0.8461538461538461,
+          "support": 15.0
+        },
+        "compensation": {
+          "precision": 0.8571428571428571,
+          "recall": 0.8,
+          "f1-score": 0.8275862068965517,
+          "support": 15.0
+        },
+        "management": {
+          "precision": 0.9090909090909091,
+          "recall": 0.6666666666666666,
+          "f1-score": 0.7692307692307693,
+          "support": 15.0
+        },
+        "workload": {
+          "precision": 0.5833333333333334,
+          "recall": 0.9333333333333333,
+          "f1-score": 0.717948717948718,
+          "support": 15.0
+        },
+        "environment": {
+          "precision": 0.8823529411764706,
+          "recall": 1.0,
+          "f1-score": 0.9375,
+          "support": 15.0
+        },
+        "career": {
+          "precision": 0.9166666666666666,
+          "recall": 0.7333333333333333,
+          "f1-score": 0.8148148148148148,
+          "support": 15.0
+        },
+        "communication": {
+          "precision": 0.8125,
+          "recall": 0.8666666666666667,
+          "f1-score": 0.8387096774193549,
+          "support": 15.0
+        }
+      },
+      "ollama_memory": {
+        "size_bytes": 3232917092,
+        "vram_bytes": 2340327259
+      }
+    },
+    "few-shot": {
+      "responses": 105,
+      "accuracy": 0.8285714285714286,
+      "macro_f1": 0.836674004371446,
+      "weighted_f1": 0.8366740043714459,
+      "invalid_rate": 0.0,
+      "mean_seconds": 0.7478462418995886,
+      "p95_seconds": 0.8364250400336459,
+      "per_class": {
+        "welfare": {
+          "precision": 0.9166666666666666,
+          "recall": 0.7333333333333333,
+          "f1-score": 0.8148148148148148,
+          "support": 15.0
+        },
+        "compensation": {
+          "precision": 1.0,
+          "recall": 0.9333333333333333,
+          "f1-score": 0.9655172413793104,
+          "support": 15.0
+        },
+        "management": {
+          "precision": 0.9,
+          "recall": 0.6,
+          "f1-score": 0.72,
+          "support": 15.0
+        },
+        "workload": {
+          "precision": 0.8125,
+          "recall": 0.8666666666666667,
+          "f1-score": 0.8387096774193549,
+          "support": 15.0
+        },
+        "environment": {
+          "precision": 0.9333333333333333,
+          "recall": 0.9333333333333333,
+          "f1-score": 0.9333333333333333,
+          "support": 15.0
+        },
+        "career": {
+          "precision": 0.8571428571428571,
+          "recall": 0.8,
+          "f1-score": 0.8275862068965517,
+          "support": 15.0
+        },
+        "communication": {
+          "precision": 0.6363636363636364,
+          "recall": 0.9333333333333333,
+          "f1-score": 0.7567567567567568,
+          "support": 15.0
+        }
+      },
+      "ollama_memory": {
+        "size_bytes": 3232917092,
+        "vram_bytes": 2340327259
+      }
+    }
+  }
+}
