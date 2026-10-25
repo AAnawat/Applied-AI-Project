@@ -2,3 +2,9 @@
 __pycache__/
 *.pyc
 .claude/
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+reports/
+outputs/
