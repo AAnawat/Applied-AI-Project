@@ -207,6 +207,20 @@ retrying because the database may already have committed the upload.
 This simple row-by-row approach suits small demonstrations; large files incur many
 network requests. It can be optimized later without changing the model.
 
+## Topic categorization (Ollama)
+
+Single-label: one category code per response, matching `category_predictions`.
+See [categorization/README.md](categorization/README.md) for the exam/answer-key
+evaluation layout. Categorize a CSV, then pass it to the sentiment command, which
+keeps the `category` column:
+
+```bash
+ollama pull qwen3:1.7b
+python -m categorization.cmd.predict --input feedback.csv --output categorized.csv
+python -m sentiment.predict --input categorized.csv --dry-run
+python -m categorization.cmd.evaluate --exam climatelens_105
+```
+
 ## Use from Python
 
 ```python

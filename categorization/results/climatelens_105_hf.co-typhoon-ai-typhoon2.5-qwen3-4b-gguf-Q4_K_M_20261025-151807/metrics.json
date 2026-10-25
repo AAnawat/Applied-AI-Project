@@ -1,0 +1,121 @@
+{
+  "exam": "climatelens_105",
+  "model": "hf.co/typhoon-ai/typhoon2.5-qwen3-4b-gguf:Q4_K_M",
+  "run_at": "2026-10-25T15:18:07",
+  "methods": {
+    "zero-shot": {
+      "responses": 105,
+      "accuracy": 0.8666666666666667,
+      "macro_f1": 0.8668043948134571,
+      "weighted_f1": 0.8668043948134573,
+      "invalid_rate": 0.0,
+      "mean_seconds": 0.4787229400006167,
+      "p95_seconds": 0.5528210199903697,
+      "per_class": {
+        "welfare": {
+          "precision": 1.0,
+          "recall": 0.7333333333333333,
+          "f1-score": 0.8461538461538461,
+          "support": 15.0
+        },
+        "compensation": {
+          "precision": 0.8235294117647058,
+          "recall": 0.9333333333333333,
+          "f1-score": 0.875,
+          "support": 15.0
+        },
+        "management": {
+          "precision": 0.9285714285714286,
+          "recall": 0.8666666666666667,
+          "f1-score": 0.896551724137931,
+          "support": 15.0
+        },
+        "workload": {
+          "precision": 0.7368421052631579,
+          "recall": 0.9333333333333333,
+          "f1-score": 0.8235294117647058,
+          "support": 15.0
+        },
+        "environment": {
+          "precision": 0.9375,
+          "recall": 1.0,
+          "f1-score": 0.967741935483871,
+          "support": 15.0
+        },
+        "career": {
+          "precision": 1.0,
+          "recall": 0.7333333333333333,
+          "f1-score": 0.8461538461538461,
+          "support": 15.0
+        },
+        "communication": {
+          "precision": 0.7647058823529411,
+          "recall": 0.8666666666666667,
+          "f1-score": 0.8125,
+          "support": 15.0
+        }
+      },
+      "ollama_memory": {
+        "size_bytes": 3232917093,
+        "vram_bytes": 2333228400
+      }
+    },
+    "few-shot": {
+      "responses": 105,
+      "accuracy": 0.8761904761904762,
+      "macro_f1": 0.8861572066720644,
+      "weighted_f1": 0.8861572066720643,
+      "invalid_rate": 0.0,
+      "mean_seconds": 0.45536050000338857,
+      "p95_seconds": 0.6194859600393101,
+      "per_class": {
+        "welfare": {
+          "precision": 0.9230769230769231,
+          "recall": 0.8,
+          "f1-score": 0.8571428571428571,
+          "support": 15.0
+        },
+        "compensation": {
+          "precision": 1.0,
+          "recall": 0.9333333333333333,
+          "f1-score": 0.9655172413793104,
+          "support": 15.0
+        },
+        "management": {
+          "precision": 0.9230769230769231,
+          "recall": 0.8,
+          "f1-score": 0.8571428571428571,
+          "support": 15.0
+        },
+        "workload": {
+          "precision": 0.8666666666666667,
+          "recall": 0.8666666666666667,
+          "f1-score": 0.8666666666666667,
+          "support": 15.0
+        },
+        "environment": {
+          "precision": 0.9375,
+          "recall": 1.0,
+          "f1-score": 0.967741935483871,
+          "support": 15.0
+        },
+        "career": {
+          "precision": 1.0,
+          "recall": 0.8,
+          "f1-score": 0.8888888888888888,
+          "support": 15.0
+        },
+        "communication": {
+          "precision": 0.7,
+          "recall": 0.9333333333333333,
+          "f1-score": 0.8,
+          "support": 15.0
+        }
+      },
+      "ollama_memory": {
+        "size_bytes": 3232917093,
+        "vram_bytes": 2333228400
+      }
+    }
+  }
+}

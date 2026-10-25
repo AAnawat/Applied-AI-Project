@@ -1,0 +1,8 @@
+﻿answer,career,communication,compensation,environment,management,welfare,workload
+career,11,3,0,0,0,0,1
+communication,0,13,0,0,0,0,2
+compensation,0,0,12,0,0,0,3
+environment,0,0,0,15,0,0,0
+management,1,0,0,1,10,0,3
+welfare,0,0,2,1,0,11,1
+workload,0,0,0,0,1,0,14
