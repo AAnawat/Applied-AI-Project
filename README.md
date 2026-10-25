@@ -10,8 +10,45 @@ Run commands from the repository root:
 conda create -n climatelens python=3.11 pip -y
 conda activate climatelens
 python -m pip install -r requirements.txt
-python -m streamlit run dashboard/app.py
 ```
+
+### Supabase connection: `.streamlit/secrets.toml`
+
+The dashboard reads its database connection from `.streamlit/secrets.toml`. Without it,
+sign-in fails with "Set supabase_url and supabase_key in .streamlit/secrets.toml".
+
+1. Copy the example (it is committed; the real file is ignored by Git):
+
+   ```bash
+   cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+   ```
+
+   On Windows Command Prompt: `copy .streamlit\secrets.toml.example .streamlit\secrets.toml`
+
+2. Fill in the two values from the ClimateLens Supabase project. If you are not a member
+   of the project, ask whoever owns it for them:
+
+   ```toml
+   # Project Settings -> Data API -> Project URL
+   supabase_url = "https://your-project.supabase.co"
+   # Project Settings -> API Keys -> Publishable key (sb_publishable_...),
+   # or the legacy "anon public" key
+   supabase_key = "sb_publishable_your-key"
+   ```
+
+   Use the **publishable** key only. The Secret / `service_role` key skips Row Level
+   Security, so every user would see everyone's data; the app refuses to connect with it.
+   Never commit or paste the secret key anywhere.
+
+3. Start the app **from the repository root**. Streamlit looks for `.streamlit/secrets.toml`
+   in the folder you run it from, so running it from `dashboard/` finds no secrets:
+
+   ```bash
+   python -m streamlit run dashboard/app.py
+   ```
+
+   Restart Streamlit after editing the file. In Streamlit hosting, paste the same two
+   lines into the app's **Settings -> Secrets** instead.
 
 The Upload & Analyze page and prediction command use the exported sentiment model.
 Topic categories in the upload page still use temporary keyword matching.
@@ -19,14 +56,15 @@ After uploading a CSV, review the results, enter a survey batch name and click
 **Save to Supabase**. The page shows the database batch ID on success and disables
 repeat saves of the same file/name within that session. Merely selecting a file or
 clicking **Use this data in the dashboard** does not save it to the database.
-Users sign in with their Supabase account first; the dashboard then shows the responses
+Users sign in with their Supabase account first (or create one on the **Register** tab);
+the dashboard then shows the responses
 saved in that account (**Saved**), or an unsaved upload (**Uploaded**). A browser refresh
 starts a new Streamlit session, so it signs the user out.
 
 ## Structure
 
 - `dashboard/app.py`: entry point, sign-in gate, navigation and global filters (months, departments, data source)
-- `dashboard/auth.py`: Supabase Auth sign-in; one Supabase client per browser session
+- `dashboard/auth.py`: Supabase Auth sign-in and registration; one Supabase client per browser session
 - `dashboard/views/`: Overview, Departments, Trends, Feedback Explorer, Upload & Analyze
 - `dashboard/climate.py`: data access, filters, Climate Index (`50 + 50 × (pos − neg) / n`; ≥60 Healthy, 45–60 Watch, <45 Needs attention)
 - `dashboard/classifier.py`: keyword placeholder; replace `classify()` with the real sentiment model + LLM categorizer
@@ -71,23 +109,24 @@ should own them and set `owner_email` at the top of the file.
 
 ### Accounts
 
-Create users in Supabase under **Authentication → Users → Add user** (tick
-**Auto Confirm User**), and turn off **Allow new users to sign up** so nobody can
-create an account through the API.
+People register themselves on the dashboard's **Register** tab. For that to work, turn
+on **Allow new users to sign up** under **Authentication → Sign In / Providers**. A new
+account starts empty: Row Level Security shows it only the batches it uploads itself.
+
+With **Confirm email** on (the default), Supabase emails a link and the user can sign in
+only after clicking it. Supabase's built-in mailer sends just a few emails per hour, so
+for a class demo either turn **Confirm email** off or set up custom SMTP. Set
+**Site URL** under **Authentication → URL Configuration** to the dashboard's address so
+the link leads back to it.
+
+Admins can still create users under **Authentication → Users → Add user** (tick
+**Auto Confirm User**). To close registration again, turn **Allow new users to sign up**
+off; the Register tab then tells people to ask an admin for an account.
 
 ### Connection settings
 
-Copy `.streamlit/secrets.toml.example` to `.streamlit/secrets.toml` and fill in
-the ClimateLens project's URL and **publishable (anon)** key:
-
-```toml
-supabase_url = "https://your-project.supabase.co"
-supabase_key = "your-publishable-key"
-```
-
-The real secrets file is ignored by Git. In Streamlit hosting, set the same TOML
-in the app's Secrets settings. Restart after editing. The old `.env` configuration
-is not used.
+Setting up `.streamlit/secrets.toml` is covered under [Setup](#supabase-connection-streamlitsecretstoml).
+The old `.env` configuration is not used.
 
 The Secret/service_role key is rejected on purpose: it bypasses Row Level Security,
 so the dashboard would show every user's data. Never paste it into chat or commit it.
