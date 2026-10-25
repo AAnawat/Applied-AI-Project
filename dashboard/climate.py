@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from auth import client, current_user
+from categorization.core.taxonomy import CATEGORIES
 
 SENTIMENT_ORDER = ["Positive", "Neutral", "Negative"]
 # Diverging pair (blue = good, red = bad) with a gray midpoint, checked for colour-blind separation
@@ -57,7 +58,10 @@ def load_saved_responses(_client, user_id: str) -> pd.DataFrame:
         return empty_df()
     df = pd.DataFrame(rows)
     df["date"] = pd.to_datetime(df["date"])
-    df["category"] = df["category"].fillna("Uncategorized")
+    # Older keyword uploads stored display names. Normalize only the dashboard
+    # view so old and new rows do not split the same topic into two groups.
+    legacy_codes = {info["name"]: code for code, info in CATEGORIES.items()}
+    df["category"] = df["category"].replace(legacy_codes).fillna("Uncategorized")
     return df
 
 

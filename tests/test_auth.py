@@ -55,6 +55,15 @@ class LoadTests(unittest.TestCase):
         self.assertEqual(len(view.requests), 2)
         self.assertEqual(set(df["category"]), {"Uncategorized"})
 
+    def test_legacy_display_names_and_llm_codes_share_the_same_topic(self):
+        rows = [
+            {**view_row(1), "category": "Work Environment"},
+            {**view_row(2), "category": "environment"},
+            {**view_row(3), "category": "Other"},
+        ]
+        df = climate.load_saved_responses(FakeView(rows), "user-legacy")
+        self.assertEqual(df["category"].tolist(), ["environment", "environment", "other"])
+
     def test_no_rows_gives_empty_frame_with_dashboard_columns(self):
         df = climate.load_saved_responses(FakeView([]), "user-b")
         self.assertTrue(df.empty)

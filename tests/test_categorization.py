@@ -10,7 +10,7 @@ import pandas as pd
 
 from categorization.core.exam import few_shot_overlap, join, load_answer_key, load_exam
 from categorization.core.examples import FEW_SHOT_EXAMPLES
-from categorization.core.llm import build_messages, categorize, parse_category
+from categorization.core.llm import _post, build_messages, categorize, parse_category
 from categorization.core.paths import EXAMS_DIR
 from categorization.core.scoring import INVALID, score
 from categorization.core.taxonomy import CODES
@@ -42,6 +42,8 @@ class ParseCategoryTest(unittest.TestCase):
         self.assertIsNone(parse_category('{"category": "salary"}'))
         self.assertIsNone(parse_category("workload"))
         self.assertIsNone(parse_category('["workload"]'))
+        self.assertIsNone(parse_category('{"category": []}'))
+        self.assertIsNone(parse_category('{"category": {}}'))
 
 
 class CategorizeTest(unittest.TestCase):
@@ -56,6 +58,17 @@ class CategorizeTest(unittest.TestCase):
         self.assertEqual(list(result["category_valid"]), [True, False])
         self.assertEqual(calls[0]["format"]["properties"]["category"]["enum"], CODES)
         self.assertEqual(calls[0]["options"]["temperature"], 0)
+
+    def test_timeout_and_bad_server_responses_are_actionable(self):
+        with patch("categorization.core.llm.urllib.request.urlopen", side_effect=TimeoutError("timed out")):
+            with self.assertRaisesRegex(RuntimeError, "Cannot reach Ollama"):
+                _post("http://127.0.0.1:11434", "/api/chat", {}, 1)
+        for response in [None, [], {"message": None}, {"message": {"content": []}}]:
+            with self.subTest(response=response), patch(
+                "categorization.core.llm._post", return_value=response
+            ):
+                with self.assertRaisesRegex(RuntimeError, "invalid chat response"):
+                    categorize(["test"])
 
     def test_few_shot_adds_example_turns(self):
         post, calls = fake_chat(['{"category": "other"}'])

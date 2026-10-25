@@ -17,7 +17,7 @@ categorization/
 ├── core/               logic shared by the commands
 │   ├── taxonomy.py     category codes, names, Thai descriptions, tie-breaking rules
 │   ├── examples.py     synthetic few-shot examples (one per category)
-│   ├── llm.py          prompt building, Ollama client, JSON parsing
+│   ├── llm.py          prompt building, Ollama client, JSON parsing (also used by the dashboard)
 │   ├── feedback.py     rejects missing or blank feedback
 │   ├── exam.py         loads an exam + answer key and pairs rows by id
 │   ├── scoring.py      accuracy, F1, invalid rate, latency
@@ -33,8 +33,13 @@ Run every command from the repository root.
 ## Setup
 
 ```bash
-ollama pull qwen3:1.7b
+ollama pull hf.co/typhoon-ai/typhoon2.5-qwen3-4b-gguf:Q4_K_M
 ```
+
+The default is the tested original Typhoon2.5-Qwen3-4B Q4_K_M model.
+The dashboard uses zero-shot categorization through this same client. It stops before
+saving if any topic answer is invalid; the CLI below leaves invalid categories blank.
+Dashboard Ollama host/model/timeout can be set in Streamlit secrets (see the root README).
 
 ## Predict
 

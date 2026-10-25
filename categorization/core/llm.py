@@ -13,7 +13,7 @@ from categorization.core.taxonomy import CATEGORIES, CODES, RULES
 
 # Not "localhost": on Windows it tries IPv6 first and adds about 2 s per request
 DEFAULT_HOST = "http://127.0.0.1:11434"
-DEFAULT_MODEL = "qwen3:1.7b"
+DEFAULT_MODEL = "hf.co/typhoon-ai/typhoon2.5-qwen3-4b-gguf:Q4_K_M"
 
 RESPONSE_SCHEMA = {
     "type": "object",
@@ -54,10 +54,12 @@ def _post(host, path, payload, timeout):
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"Ollama returned HTTP {error.code}: {detail}") from None
-    except urllib.error.URLError as error:
+    except (urllib.error.URLError, OSError) as error:
         raise RuntimeError(
-            f"Cannot reach Ollama at {host} ({error.reason}). Start Ollama and check --host."
+            f"Cannot reach Ollama at {host} ({error}). Start Ollama and check --host."
         ) from None
+    except json.JSONDecodeError:
+        raise RuntimeError("Ollama returned an invalid JSON response.") from None
 
 
 def parse_category(content):
@@ -65,7 +67,7 @@ def parse_category(content):
         category = json.loads(content).get("category")
     except (json.JSONDecodeError, AttributeError):
         return None
-    return category if category in CATEGORIES else None
+    return category if isinstance(category, str) and category in CATEGORIES else None
 
 
 def categorize_one(text, *, model=DEFAULT_MODEL, host=DEFAULT_HOST, examples=(), timeout=120):
@@ -78,7 +80,13 @@ def categorize_one(text, *, model=DEFAULT_MODEL, host=DEFAULT_HOST, examples=(),
         "options": {"temperature": 0, "num_ctx": 2048},
     }
     start = time.perf_counter()
-    content = _post(host, "/api/chat", payload, timeout).get("message", {}).get("content", "")
+    response = _post(host, "/api/chat", payload, timeout)
+    message = response.get("message") if isinstance(response, dict) else None
+    if not isinstance(message, dict) or not isinstance(message.get("content"), str):
+        raise RuntimeError("Ollama returned an invalid chat response.")
+
+    content = message["content"]
+
     seconds = time.perf_counter() - start
 
     category = parse_category(content)

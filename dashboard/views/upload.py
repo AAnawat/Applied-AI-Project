@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 
 from auth import client
-from classifier import classify
+from classifier import TopicCategorizationError, classify, topic_settings
 from climate import load_saved_responses
 from sentiment.storage import save_predictions
 
@@ -14,7 +14,7 @@ st.markdown(
     "Upload a CSV of survey responses. Required column: `feedback`. "
     "Optional: `department`, `date`."
 )
-st.caption("Sentiment uses the saved model. Topic categories currently use keyword matching.")
+st.caption("Sentiment uses the saved model. Topics use the Local LLM in zero-shot mode.")
 st.info(
     "Upload and review the results, then click Save to Supabase to store them in your account. "
     "Each response counts towards the month of its CSV `date`; rows without a valid date count towards today."
@@ -43,7 +43,7 @@ if "feedback" not in raw.columns:
     st.error(f"Missing `feedback` column. Found: {', '.join(raw.columns)}")
     st.stop()
 
-reserved = {"response_id", "month", "sentiment", "confidence"} & set(raw.columns)
+reserved = {"response_id", "month", "sentiment", "confidence", "category", "category_confidence"} & set(raw.columns)
 if reserved:
     st.error(f"Please remove result columns before analyzing: {', '.join(sorted(reserved))}")
     st.stop()
@@ -60,12 +60,23 @@ df["date"] = df["date"].fillna(pd.Timestamp.today().normalize())
 df["month"] = df["date"].dt.strftime("%Y-%m")
 df.insert(0, "response_id", [f"U{i:05d}" for i in range(1, len(df) + 1)])
 
+upload_key = sha256(file.getvalue()).hexdigest()
 try:
-    with st.spinner("Classifying responses..."):
-        predictions = classify(df["feedback"])
-        if "category" in df.columns:
-            predictions = predictions.drop(columns="category")
-        df = df.join(predictions)
+    settings = topic_settings()
+    analysis_key = (upload_key, tuple(settings.items()))
+    cached = st.session_state.get("upload_analysis")
+    if cached is None or cached["key"] != analysis_key:
+        with st.spinner("Analyzing sentiment and topics with Local LLM..."):
+            predictions = classify(df["feedback"], **settings)
+        st.session_state["upload_analysis"] = {
+            "key": analysis_key, "predictions": predictions.copy(),
+        }
+    else:
+        predictions = cached["predictions"].copy()
+    df = df.join(predictions)
+except TopicCategorizationError as error:
+    st.error(str(error))
+    st.stop()
 except (ValueError, FileNotFoundError):
     st.error("Could not load or run the sentiment model. Check models/sentiment.joblib and the package versions used to export it.")
     st.stop()
@@ -86,7 +97,6 @@ def use_uploaded(data: pd.DataFrame) -> None:
 
 
 st.subheader("Save analyzed responses")
-upload_key = sha256(file.getvalue()).hexdigest()
 batch_name = st.text_input("Survey batch name", value=Path(file.name).stem)
 save_key = (upload_key, batch_name.strip())
 saved_uploads = st.session_state.setdefault("saved_uploads", {})

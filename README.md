@@ -51,7 +51,9 @@ sign-in fails with "Set supabase_url and supabase_key in .streamlit/secrets.toml
    lines into the app's **Settings -> Secrets** instead.
 
 The Upload & Analyze page and prediction command use the exported sentiment model.
-Topic categories in the upload page still use temporary keyword matching.
+Topic categories in the upload page use the original Typhoon2.5-Qwen3-4B model
+through Ollama, zero-shot (no fine-tuned adapter). Start Ollama and pull the model
+as described under [Topic categorization](#topic-categorization-ollama) before analyzing.
 After uploading a CSV, review the results, enter a survey batch name and click
 **Save to Supabase**. The page shows the database batch ID on success and disables
 repeat saves of the same file/name within that session. Merely selecting a file or
@@ -67,7 +69,7 @@ starts a new Streamlit session, so it signs the user out.
 - `dashboard/auth.py`: Supabase Auth sign-in and registration; one Supabase client per browser session
 - `dashboard/views/`: Overview, Departments, Trends, Feedback Explorer, Upload & Analyze
 - `dashboard/climate.py`: data access, filters, Climate Index (`50 + 50 × (pos − neg) / n`; ≥60 Healthy, 45–60 Watch, <45 Needs attention)
-- `dashboard/classifier.py`: keyword placeholder; replace `classify()` with the real sentiment model + LLM categorizer
+- `dashboard/classifier.py`: saved sentiment model + zero-shot Ollama topic categorizer; canonical category codes
 
 Dashboard pages show an upload prompt when the selected data source has no responses. If filters exclude all responses, clear or broaden the filters. Uploaded CSVs must contain at least one non-empty `feedback` value.
 
@@ -210,12 +212,47 @@ network requests. It can be optimized later without changing the model.
 ## Topic categorization (Ollama)
 
 Single-label: one category code per response, matching `category_predictions`.
+Install [Ollama](https://ollama.com/download), start the Ollama application (or
+`ollama serve` in a separate terminal), then pull the tested model:
+
+```bash
+ollama pull hf.co/typhoon-ai/typhoon2.5-qwen3-4b-gguf:Q4_K_M
+```
+
+Start Streamlit from this repository's root. Upload a CSV with `feedback` and,
+optionally, `department` / `date`. Do not include existing category or sentiment
+result columns: the upload page predicts every row itself. Review the predictions,
+then click **Save to Supabase** to persist them through the signed-in user's client.
+No SQL changes are required for LLM topics.
+
+Optional settings in `.streamlit/secrets.toml` (also shown in the example file):
+
+```toml
+ollama_host = "http://127.0.0.1:11434"
+ollama_model = "hf.co/typhoon-ai/typhoon2.5-qwen3-4b-gguf:Q4_K_M"
+ollama_timeout = 120
+```
+
+The model uses temperature 0, context 2048, thinking disabled and the shared JSON
+category schema. A connection error or invalid category stops analysis before saving;
+there is no keyword fallback. The most recent successful analysis is kept only in
+the browser's Streamlit session, keyed by file contents and Ollama settings, so typing
+a batch name or saving does not call the LLM again. Signing out clears the session.
+Only feedback text is sent to Ollama, not Supabase credentials or the other CSV fields.
+The displayed confidence is the sentiment probability; no topic confidence is invented.
+Older keyword category display names are normalized to the same codes when the dashboard
+reads them, without rewriting the database.
+
+For a deployed app, `127.0.0.1` means the machine running Streamlit, not the visitor's
+computer. The app server must be able to reach its Ollama service; configure
+`ollama_host` for a trusted server if the two run on different machines. Do not expose
+an unprotected Ollama endpoint publicly.
+
 See [categorization/README.md](categorization/README.md) for the exam/answer-key
 evaluation layout. Categorize a CSV, then pass it to the sentiment command, which
 keeps the `category` column:
 
 ```bash
-ollama pull qwen3:1.7b
 python -m categorization.cmd.predict --input feedback.csv --output categorized.csv
 python -m sentiment.predict --input categorized.csv --dry-run
 python -m categorization.cmd.evaluate --exam climatelens_105

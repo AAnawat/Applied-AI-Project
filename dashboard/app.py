@@ -57,7 +57,8 @@ with st.sidebar:
             f"⚪ fewer than {MIN_RESPONSES} responses (no status).\n\n"
             "**Sentiment model:** TF-IDF + Logistic Regression, macro-F1 0.67 on Wisesight (social-media text). "
             "Expect lower accuracy on polite, indirect workplace comments.\n\n"
-            "**Topics:** LLM categorizer (in progress)."
+            "**Topics:** Local LLM via Ollama, zero-shot. "
+            "Topic classification does not provide a confidence probability."
         )
 
 pages.run()
