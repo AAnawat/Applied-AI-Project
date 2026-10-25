@@ -4,7 +4,6 @@ import pandas as pd
 import streamlit as st
 
 from auth import client, current_user
-from mock_data import generate_mock_data
 
 SENTIMENT_ORDER = ["Positive", "Neutral", "Negative"]
 # Diverging pair (blue = good, red = bad) with a gray midpoint, checked for colour-blind separation
@@ -26,10 +25,6 @@ WINDOW_MONTHS = 3
 # Supabase returns at most 1,000 rows per request unless asked for the next range
 PAGE_SIZE = 1000
 
-
-@st.cache_data
-def load_mock_data() -> pd.DataFrame:
-    return generate_mock_data()
 
 @st.cache_data
 def empty_df() -> pd.DataFrame:

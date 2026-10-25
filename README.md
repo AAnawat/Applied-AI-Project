@@ -29,7 +29,6 @@ starts a new Streamlit session, so it signs the user out.
 - `dashboard/auth.py`: Supabase Auth sign-in; one Supabase client per browser session
 - `dashboard/views/`: Overview, Departments, Trends, Feedback Explorer, Upload & Analyze
 - `dashboard/climate.py`: data access, filters, Climate Index (`50 + 50 × (pos − neg) / n`; ≥60 Healthy, 45–60 Watch, <45 Needs attention)
-- `dashboard/mock_data.py`: generated Thai survey responses (Jan–Oct 2026, 7 departments, 7 categories)
 - `dashboard/classifier.py`: keyword placeholder; replace `classify()` with the real sentiment model + LLM categorizer
 
 Dashboard pages show an upload prompt when the selected data source has no responses. If filters exclude all responses, clear or broaden the filters. Uploaded CSVs must contain at least one non-empty `feedback` value.
