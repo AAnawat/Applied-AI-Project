@@ -1,6 +1,8 @@
 """Offline tests. No Supabase credentials, model file or database writes needed."""
 
+import base64
 import copy
+import json
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -72,8 +74,9 @@ class Query:
         elif self.operation in ("insert", "upsert"):
             old = None
             if self.operation == "upsert":
+                columns = self.conflict.split(",")
                 old = next((r for r in table
-                            if r.get(self.conflict) == self.payload[self.conflict]), None)
+                            if all(r.get(c) == self.payload.get(c) for c in columns)), None)
             if old is not None:
                 old.update(self.payload)
                 data = [old]
@@ -174,16 +177,32 @@ class StorageTests(unittest.TestCase):
                 save_predictions(frame)
             connect.assert_not_called()
 
-    def test_publishable_key_is_rejected_before_connecting(self):
+    def connect_with(self, key):
         factory = MagicMock()
         sdk = SimpleNamespace(create_client=factory)
         with patch.dict("sys.modules", {"supabase": sdk}), patch(
             "sentiment.storage.st.secrets",
-            {"supabase_url": "https://example.supabase.co", "supabase_key": "sb_publishable_test"},
+            {"supabase_url": "https://example.supabase.co", "supabase_key": key},
         ):
-            with self.assertRaisesRegex(ValueError, "Secret key"):
-                init_connection.__wrapped__()
-        factory.assert_not_called()
+            init_connection()
+        return factory
+
+    def legacy_key(self, role):
+        payload = base64.urlsafe_b64encode(json.dumps({"role": role}).encode()).decode().rstrip("=")
+        return f"eyJhbGciOiJIUzI1NiJ9.{payload}.signature"
+
+    def test_secret_keys_are_rejected_before_connecting(self):
+        for key in ("sb_secret_test", self.legacy_key("service_role")):
+            with self.assertRaisesRegex(ValueError, "Row Level Security"):
+                self.connect_with(key)
+
+    def test_publishable_keys_connect(self):
+        for key in ("sb_publishable_test", self.legacy_key("anon")):
+            self.connect_with(key).assert_called_once_with("https://example.supabase.co", key)
+
+    def test_saving_requires_a_signed_in_client(self):
+        with self.assertRaisesRegex(ValueError, "Sign in first"):
+            save_predictions(self.frame())
 
     def test_duplicate_file_is_a_separate_upload(self):
         db = FakeSupabase()

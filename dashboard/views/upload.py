@@ -4,7 +4,9 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+from auth import client
 from classifier import classify
+from climate import load_saved_responses
 from sentiment.storage import save_predictions
 
 st.title("Upload & Analyze")
@@ -13,7 +15,10 @@ st.markdown(
     "Optional: `department`, `date`."
 )
 st.caption("Sentiment uses the saved model. Topic categories currently use keyword matching.")
-st.info("Upload and review the results, then click Save to Supabase to store them in the database.")
+st.info(
+    "Upload and review the results, then click Save to Supabase to store them in your account. "
+    "Saved responses count towards the month you save them; the CSV `date` is only used in this preview."
+)
 
 template = pd.DataFrame(
     {
@@ -90,8 +95,9 @@ saved = saved_uploads.get(save_key)
 if st.button("Save to Supabase", type="primary", disabled=saved is not None or not batch_name.strip()):
     try:
         with st.spinner("Saving responses to Supabase..."):
-            batch_id, count = save_predictions(df, batch_name=batch_name)
+            batch_id, count = save_predictions(df, batch_name=batch_name, client=client())
         saved_uploads[save_key] = (batch_id, count)
+        load_saved_responses.clear()
         st.rerun()
     except (ValueError, RuntimeError) as error:
         st.error(str(error))

@@ -1,3 +1,5 @@
+import base64
+import binascii
 import json
 import math
 from typing import TYPE_CHECKING
@@ -9,8 +11,23 @@ if TYPE_CHECKING:
     from supabase import Client
 
 
-@st.cache_resource(show_spinner="Connecting to Supabase...")
+def _is_secret_key(key):
+    if key.startswith("sb_secret_"):
+        return True
+
+    # Legacy keys are JWTs; the service_role one carries role=service_role
+    parts = key.split(".")
+    if len(parts) != 3:
+        return False
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)))
+    except (binascii.Error, UnicodeDecodeError, ValueError):
+        return False
+    return isinstance(payload, dict) and payload.get("role") == "service_role"
+
+
 def init_connection() -> "Client":
+    """A new, signed-out client. A user signs in on it, so never cache or share one between users."""
     from supabase import create_client
 
     try:
@@ -25,11 +42,11 @@ def init_connection() -> "Client":
     if not isinstance(url, str) or not isinstance(key, str) or not url.strip() or not key.strip():
         raise ValueError("supabase_url and supabase_key must be non-empty strings.")
 
-    if key.startswith("sb_publishable_"):
+    if _is_secret_key(key):
         raise ValueError(
-            "The configured Supabase key is publishable. Saving from this backend "
-            "requires the project Secret key or legacy service_role key. Update "
-            "supabase_key in .streamlit/secrets.toml and restart Streamlit."
+            "The configured Supabase key is a Secret/service_role key, which bypasses "
+            "Row Level Security and would show every user's data. Use the project's "
+            "publishable (anon) key in supabase_key and restart Streamlit."
         )
     return create_client(url, key)
 
@@ -108,7 +125,7 @@ def _returned_id(response):
     return record_id
 
 
-def get_or_create_reference(supabase, table, column, value):
+def get_or_create_reference(supabase, table, column, value, on_conflict=None):
     if value is None:
         return None
 
@@ -126,7 +143,7 @@ def get_or_create_reference(supabase, table, column, value):
     response = (
         supabase
         .table(table)
-        .upsert({column: value}, on_conflict=column)
+        .upsert({column: value}, on_conflict=on_conflict or column)
         .execute()
     )
     return _returned_id(response)
@@ -140,7 +157,12 @@ def save_predictions(results, *, batch_name="Survey upload", client=None):
     if not records:
         raise ValueError("No prediction results to save.")
 
-    supabase = client if client is not None else init_connection()
+    if client is None:
+        # Rows are owned by the signed-in user (owner_id defaults to auth.uid()),
+        # so a fresh signed-out connection could not save anything
+        raise ValueError("Sign in first: pass the logged-in user's Supabase client.")
+
+    supabase = client
     batch_id = None
     department_ids = {}
     category_ids = {}
@@ -157,8 +179,9 @@ def save_predictions(results, *, batch_name="Survey upload", client=None):
         for row in records:
             department = row["department"]
             if department not in department_ids:
+                # Department names are unique per owner; owner_id defaults to auth.uid()
                 department_ids[department] = get_or_create_reference(
-                    supabase, "departments", "name", department
+                    supabase, "departments", "name", department, on_conflict="owner_id,name"
                 )
 
             response = (
@@ -213,8 +236,8 @@ def save_predictions(results, *, batch_name="Survey upload", client=None):
 
     except Exception as error:
         permission_hint = (
-            " Supabase denied write access (42501). Check the backend secret/service_role "
-            "key and database grants."
+            " Supabase denied write access (42501). Check that you are signed in and "
+            "that the auth/RLS migration has been run."
             if str(getattr(error, "code", "")) == "42501" else ""
         )
         if batch_id is None:
@@ -244,7 +267,7 @@ def save_predictions(results, *, batch_name="Survey upload", client=None):
         raise RuntimeError(
             f"Saving failed. Removed batch {batch_id} and its "
             "responses/predictions. Shared department/category references were kept. "
-            "Check the connection, schema and backend key permissions."
+            "Check the connection, schema and that you are signed in."
         ) from None
 
     return batch_id, len(records)

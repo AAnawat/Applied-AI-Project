@@ -3,6 +3,7 @@
 import pandas as pd
 import streamlit as st
 
+from auth import client, current_user
 from mock_data import generate_mock_data
 
 SENTIMENT_ORDER = ["Positive", "Neutral", "Negative"]
@@ -22,6 +23,8 @@ WATCH_THRESHOLD = 45
 MIN_RESPONSES = 10
 # Comparisons use 3-month windows; single months swing by 20-40 points on mock-sized departments
 WINDOW_MONTHS = 3
+# Supabase returns at most 1,000 rows per request unless asked for the next range
+PAGE_SIZE = 1000
 
 
 @st.cache_data
@@ -37,11 +40,44 @@ def empty_df() -> pd.DataFrame:
     ])
 
 
+@st.cache_data(ttl=300, show_spinner="Loading survey responses...")
+def load_saved_responses(_client, user_id: str) -> pd.DataFrame:
+    """Every response this user saved. RLS does the filtering; user_id only keys the cache."""
+    rows, start = [], 0
+    while True:
+        page = (
+            _client.table("v_analyzed_responses")
+            .select("*")
+            .order("response_id")
+            .range(start, start + PAGE_SIZE - 1)
+            .execute()
+            .data
+        )
+        rows.extend(page)
+        if len(page) < PAGE_SIZE:
+            break
+        start += PAGE_SIZE
+
+    if not rows:
+        return empty_df()
+    df = pd.DataFrame(rows)
+    df["date"] = pd.to_datetime(df["date"])
+    df["category"] = df["category"].fillna("Uncategorized")
+    return df
+
+
 def get_data() -> pd.DataFrame:
-    """The dataset currently selected in the sidebar (mock or uploaded)."""
+    """The dataset currently selected in the sidebar (saved in Supabase, or an unsaved upload)."""
     if st.session_state.get("data_source") == "Uploaded" and "uploaded_df" in st.session_state:
         return st.session_state["uploaded_df"]
-    return empty_df()
+    user = current_user()
+    if user is None:
+        return empty_df()
+    try:
+        return load_saved_responses(client(), user["id"])
+    except Exception:
+        st.error("Could not load saved responses from Supabase. Try signing out and in again.")
+        st.stop()
 
 
 def apply_filters(df: pd.DataFrame) -> pd.DataFrame:

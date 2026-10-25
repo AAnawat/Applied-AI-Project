@@ -19,11 +19,14 @@ After uploading a CSV, review the results, enter a survey batch name and click
 **Save to Supabase**. The page shows the database batch ID on success and disables
 repeat saves of the same file/name within that session. Merely selecting a file or
 clicking **Use this data in the dashboard** does not save it to the database.
-The dashboard displays session/mock data; it does not yet reload historical database views.
+Users sign in with their Supabase account first; the dashboard then shows the responses
+saved in that account (**Saved**), or an unsaved upload (**Uploaded**). A browser refresh
+starts a new Streamlit session, so it signs the user out.
 
 ## Structure
 
-- `dashboard/app.py`: entry point, navigation and global filters (months, departments, data source)
+- `dashboard/app.py`: entry point, sign-in gate, navigation and global filters (months, departments, data source)
+- `dashboard/auth.py`: Supabase Auth sign-in; one Supabase client per browser session
 - `dashboard/views/`: Overview, Departments, Trends, Feedback Explorer, Upload & Analyze
 - `dashboard/climate.py`: data access, filters, Climate Index (`50 + 50 × (pos − neg) / n`; ≥60 Healthy, 45–60 Watch, <45 Needs attention)
 - `dashboard/mock_data.py`: generated Thai survey responses (Jan–Oct 2026, 7 departments, 7 categories)
@@ -61,36 +64,48 @@ migrate an incompatible schema or delete existing data.
 This is manual setup; Python does not run the SQL automatically.
 No additional SQL function or RPC setup is needed.
 
+Then run `supabase/migrations/20261025000000_auth_rls.sql` the same way. It gives
+every batch, response and department an `owner_id` (the signed-in user), turns on Row
+Level Security so each user reads and writes only their own rows, and makes the views
+apply those rules. If the database already has rows, first create the account that
+should own them and set `owner_email` at the top of the file.
+
+### Accounts
+
+Create users in Supabase under **Authentication → Users → Add user** (tick
+**Auto Confirm User**), and turn off **Allow new users to sign up** so nobody can
+create an account through the API.
+
+### Connection settings
+
 Copy `.streamlit/secrets.toml.example` to `.streamlit/secrets.toml` and fill in
-the ClimateLens project's URL and backend secret/service-role key:
+the ClimateLens project's URL and **publishable (anon)** key:
 
 ```toml
 supabase_url = "https://your-project.supabase.co"
-supabase_key = "your-server-side-secret-key"
+supabase_key = "your-publishable-key"
 ```
 
 The real secrets file is ignored by Git. In Streamlit hosting, set the same TOML
-in the app's Secrets settings. Restart after editing. Connection uses
-`st.secrets`, `create_client()` and `@st.cache_resource`, like the Week 12 lab.
-The old `.env` configuration is not used.
+in the app's Secrets settings. Restart after editing. The old `.env` configuration
+is not used.
 
-If saving fails with database code `42501`, the configured key does not have write
-access under the current policies/grants. Use the project's backend Secret key or
-legacy service_role key for this trusted server. A publishable key is rejected by
-the save connection. Never paste the secret into chat or commit it to Git.
-Restart Streamlit after changing credentials.
+The Secret/service_role key is rejected on purpose: it bypasses Row Level Security,
+so the dashboard would show every user's data. Never paste it into chat or commit it.
+Each browser session gets its own client (`st.session_state`), never a shared
+`@st.cache_resource` one, because the client holds the signed-in user's token.
 
-No anonymous/browser access is granted by the schema. Use the backend
-secret/service-role key in trusted Python code only. This does not implement user
-authentication or organization-specific authorization; add those before exposing
-saves in a public or multi-user app.
+If saving fails with database code `42501`, the user is not signed in or the
+auth/RLS migration has not been run.
 
 ## Predict and save
 
 ```bash
-python -m sentiment.predict --text "เพื่อนร่วมงานช่วยเหลือดี" --batch-name "Single message"
-python -m sentiment.predict --input /path/to/feedback.csv --batch-name "Monthly survey 2026-10"
+python -m sentiment.predict --email you@example.com --text "เพื่อนร่วมงานช่วยเหลือดี" --batch-name "Single message"
+python -m sentiment.predict --email you@example.com --input /path/to/feedback.csv --batch-name "Monthly survey 2026-10"
 ```
+
+The command asks for that account's password and saves into its account.
 
 If omitted, the batch name defaults to the input filename without its extension,
 or "Single feedback" for a text message. Batch names do not control the upload month.
@@ -155,6 +170,7 @@ from sentiment.storage import init_connection, save_predictions
 model = load_model()
 result = df.join(predict_sentiment(df["feedback"], model))
 supabase = init_connection()
+supabase.auth.sign_in_with_password({"email": "you@example.com", "password": "..."})
 batch_id, count = save_predictions(
     result, batch_name="Monthly survey", client=supabase
 )

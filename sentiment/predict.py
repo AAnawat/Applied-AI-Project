@@ -1,10 +1,11 @@
 import argparse
+import getpass
 from pathlib import Path
 
 import pandas as pd
 
 from .model import DEFAULT_MODEL_PATH, load_model, predict_sentiment
-from .storage import save_predictions
+from .storage import init_connection, save_predictions
 
 
 def main():
@@ -16,8 +17,11 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Preview without connecting to Supabase")
     parser.add_argument("--batch-name", help="Survey upload name; defaults to the input filename")
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL_PATH)
+    parser.add_argument("--email", help="Account to save as (password is prompted); required unless --dry-run")
 
     args = parser.parse_args()
+    if not args.dry_run and not args.email:
+        parser.error("--email is required to save; results are stored in that user's account.")
 
     frame = pd.DataFrame({"feedback": [args.text]}) if args.text is not None else pd.read_csv(
         args.input, encoding="utf-8-sig",
@@ -43,8 +47,14 @@ def main():
     batch_name = args.batch_name if args.batch_name is not None else (args.input.stem if args.input else "Single feedback")
     print(f"Saving survey: {batch_name}", flush=True)
 
+    from supabase_auth.errors import AuthError
+
     try:
-        batch_id, count = save_predictions(result, batch_name=batch_name)
+        client = init_connection()
+        client.auth.sign_in_with_password({"email": args.email, "password": getpass.getpass("Password: ")})
+        batch_id, count = save_predictions(result, batch_name=batch_name, client=client)
+    except AuthError:
+        parser.error("Wrong email or password.")
     except (ValueError, RuntimeError) as error:
         parser.error(str(error))
     print(f"Saved {count} responses and sentiment predictions to Supabase (survey batch ID: {batch_id})")

@@ -2,9 +2,15 @@
 
 import streamlit as st
 
+from auth import current_user, login_form, logout
 from climate import MIN_RESPONSES, get_data
 
 st.set_page_config(page_title="ClimateLens", page_icon="", layout="wide")
+
+# Nothing below runs until the user signs in; a browser refresh starts a new session and signs out
+user = current_user()
+if user is None:
+    login_form()
 
 pages = st.navigation(
     [
@@ -19,8 +25,10 @@ pages = st.navigation(
 with st.sidebar:
     st.title("ClimateLens")
     st.caption("Organizational Climate Assessment")
+    st.caption(f"Signed in as **{user['email']}**")
+    st.button("Sign out", on_click=logout)
 
-    sources = ["Mock data", "Uploaded"] if "uploaded_df" in st.session_state else ["Mock data"]
+    sources = ["Saved", "Uploaded"] if "uploaded_df" in st.session_state else ["Saved"]
     source = st.radio("Data source", sources, key="data_source", horizontal=True)
 
     df = get_data()
@@ -39,8 +47,8 @@ with st.sidebar:
     )
     st.session_state["departments"] = st.session_state[f"departments_{source}"]
 
-    if source == "Mock data":
-        st.info("Showing generated mock data. Real model results will replace it.", icon="ℹ️")
+    if source == "Uploaded":
+        st.info("Showing the CSV you just analyzed. Save it on the Upload page to keep it.", icon="ℹ️")
 
     with st.expander("About the numbers"):
         st.markdown(
