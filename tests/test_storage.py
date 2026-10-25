@@ -13,7 +13,7 @@ from sentiment.storage import init_connection, save_predictions
 
 
 class FakeSupabase:
-    def __init__(self, fail=None, fail_cleanup=False):
+    def __init__(self, fail=None, fail_cleanup=False, fail_code=None):
         self.rows = {name: [] for name in (
             "survey_batches", "responses", "sentiment_predictions",
             "departments", "categories", "category_predictions",
@@ -22,6 +22,7 @@ class FakeSupabase:
         self.next_id = 1
         self.fail = fail
         self.fail_cleanup = fail_cleanup
+        self.fail_code = fail_code
 
     def table(self, name):
         return Query(self, name)
@@ -64,7 +65,9 @@ class Query:
         db = self.client
         db.calls.append((self.name, self.operation, copy.deepcopy(self.payload), dict(self.filters)))
         if db.fail == (self.name, self.operation):
-            raise RuntimeError("simulated private SDK details")
+            error = RuntimeError("simulated private SDK details")
+            error.code = db.fail_code
+            raise error
         if db.fail_cleanup and self.operation == "delete":
             raise RuntimeError("simulated cleanup outage")
         table = db.rows[self.name]
@@ -135,6 +138,31 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(db.rows["departments"], [])
         self.assertEqual(db.rows["category_predictions"], [])
         self.assertTrue(all(r["department_id"] is None for r in db.rows["responses"]))
+        self.assertTrue(all("survey_date" not in r for r in db.rows["responses"]))
+
+    def test_csv_dates_are_saved_as_survey_dates(self):
+        db = FakeSupabase()
+        frame = self.frame()
+        frame["date"] = pd.to_datetime(["2026-08-15", None])
+        save_predictions(frame, client=db)
+        self.assertEqual(db.rows["responses"][0]["survey_date"], "2026-08-15")
+        self.assertNotIn("survey_date", db.rows["responses"][1])
+
+    def test_unreadable_dates_are_rejected_before_saving(self):
+        db = FakeSupabase()
+        frame = self.frame()
+        frame["date"] = ["2026-08-15", "15/08/2026"]
+        with self.assertRaisesRegex(ValueError, "Row 2: date"):
+            save_predictions(frame, client=db)
+        self.assertEqual(db.calls, [])
+
+    def test_missing_survey_date_column_names_the_migration(self):
+        db = FakeSupabase(fail=("responses", "insert"), fail_code="PGRST204")
+        frame = self.frame()
+        frame["date"] = ["2026-08-15", "2026-08-16"]
+        with self.assertRaisesRegex(RuntimeError, "20261025120000_survey_date.sql"):
+            save_predictions(frame, client=db)
+        self.assertEqual(db.rows["survey_batches"], [])
 
     def test_failure_cleans_only_new_batch_and_preserves_shared_references(self):
         db = FakeSupabase(fail=("category_predictions", "insert"))

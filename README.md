@@ -88,11 +88,11 @@ The code now follows these tables and views:
 | `departments` | Unique department names |
 | `categories` | Unique category codes |
 | `survey_batches` | One upload, server upload time and row count |
-| `responses` | Feedback text linked to a batch and optional department |
+| `responses` | Feedback text linked to a batch, optional department and optional survey date |
 | `sentiment_predictions` | One sentiment label/probability per response |
 | `category_predictions` | Optional category result per response |
 | `v_analyzed_responses` | Joined records for the dashboard |
-| `v_climate_monthly` | Climate Index grouped by upload month, department, category |
+| `v_climate_monthly` | Climate Index grouped by survey month (or upload month when undated), department, category |
 
 Run `supabase/schema.sql` in your Supabase SQL Editor. It creates the tables/views
 from message.txt and backend permissions, including deletion of failed upload batches.
@@ -106,6 +106,12 @@ every batch, response and department an `owner_id` (the signed-in user), turns o
 Level Security so each user reads and writes only their own rows, and makes the views
 apply those rules. If the database already has rows, first create the account that
 should own them and set `owner_email` at the top of the file.
+
+Then run `supabase/migrations/20261025120000_survey_date.sql`. It stores each
+response's CSV `date` in `responses.survey_date` and makes the views count a response
+towards that date's month. Rows saved without a date, including everything saved before
+this migration, keep counting towards the day they were uploaded. Until it is run, saving
+a CSV with a `date` column fails with `PGRST204`.
 
 ### Accounts
 
@@ -146,7 +152,8 @@ python -m sentiment.predict --email you@example.com --input /path/to/feedback.cs
 The command asks for that account's password and saves into its account.
 
 If omitted, the batch name defaults to the input filename without its extension,
-or "Single feedback" for a text message. Batch names do not control the upload month.
+or "Single feedback" for a text message. Batch names do not control the month;
+the CSV `date` column does.
 
 To preview without any database connection or write:
 
@@ -155,6 +162,7 @@ python -m sentiment.predict --text "วันนี้มีประชุม" 
 ```
 
 Input CSV requires `feedback`. Optional `department` maps to a department reference.
+Optional `date` (`YYYY-MM-DD`) is the survey day the response counts towards.
 The prediction command appends sentiment and confidence; input must not already
 contain those columns.
 
@@ -163,12 +171,12 @@ It is preserved if already supplied by a categorizer; no category is invented by
 the sentiment model. `category_confidence` is separate from sentiment confidence.
 No category means no category_predictions row, and the view's category is NULL.
 
-Only feedback, department, sentiment, confidence, category and category_confidence
+Only feedback, department, date, sentiment, confidence, category and category_confidence
 are sent. Arbitrary extra CSV columns and employee identifiers are not persisted.
 A missing department stays NULL in responses, displayed as "Unknown" in the view.
-The CSV `date` is not stored by this schema: dashboard month comes from the batch's
-server `uploaded_at`, exactly as in message.txt. Response creation time is also
-assigned by the server. Confidence values can be NULL or between 0 and 1.
+The CSV `date` is stored as `responses.survey_date` and decides the dashboard month;
+a row without one falls back to the batch's server `uploaded_at`. Response creation
+time is assigned by the server. Confidence values can be NULL or between 0 and 1.
 
 Each save creates one new integer batch ID and returns its row count. The old
 `--table` and UUID `--batch-id` options have been removed.

@@ -43,6 +43,7 @@ class UploadTests(unittest.TestCase):
             self.assertFalse(app.exception)
             save.assert_called_once()
             self.assertEqual(len(save.call_args.args[0]), 2)
+            self.assertIn("date", save.call_args.args[0].columns)
             self.assertEqual(save.call_args.kwargs["batch_name"], "test")
             self.assertIs(save.call_args.kwargs["client"], USER_CLIENT)
             self.assertTrue(any("123" in message.value for message in app.success))

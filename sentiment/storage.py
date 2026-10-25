@@ -2,6 +2,7 @@ import base64
 import binascii
 import json
 import math
+from datetime import date
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -74,6 +75,20 @@ def _confidence(value, field, number):
     return value
 
 
+def _survey_date(value, number):
+    """The response's survey day as YYYY-MM-DD; accepts ISO dates and timestamps."""
+    if value is None:
+        return None
+
+    if not isinstance(value, str):
+        raise ValueError(f"Row {number}: date must be text like 2026-10-25.")
+
+    try:
+        return date.fromisoformat(value.strip()[:10]).isoformat()
+    except ValueError:
+        raise ValueError(f"Row {number}: date must look like 2026-10-25.") from None
+
+
 def prepare_records(results):
     if not results.columns.is_unique:
         raise ValueError("Duplicate column names are not supported.")
@@ -82,7 +97,7 @@ def prepare_records(results):
     if missing:
         raise ValueError(f"Missing result columns: {', '.join(sorted(missing))}")
 
-    supported = ["feedback", "sentiment", "confidence", "department", "category", "category_confidence"]
+    supported = ["feedback", "sentiment", "confidence", "department", "category", "category_confidence", "date"]
     frame = results[[column for column in supported if column in results.columns]]
 
     rows = json.loads(frame.to_json(orient="records", date_format="iso"))
@@ -105,6 +120,7 @@ def prepare_records(results):
         records.append({
             "feedback_text": feedback,
             "department": _optional_text(row.get("department"), "department", number),
+            "survey_date": _survey_date(row.get("date"), number),
             "label": label,
             "confidence": _confidence(row.get("confidence"), "confidence", number),
             "category": category,
@@ -184,14 +200,18 @@ def save_predictions(results, *, batch_name="Survey upload", client=None):
                     supabase, "departments", "name", department, on_conflict="owner_id,name"
                 )
 
+            response_row = {
+                "batch_id": batch_id,
+                "department_id": department_ids[department],
+                "feedback_text": row["feedback_text"],
+            }
+            if row["survey_date"] is not None:
+                # Undated rows leave survey_date out, so they still save before the survey-date migration
+                response_row["survey_date"] = row["survey_date"]
             response = (
                 supabase
                 .table("responses")
-                .insert({
-                    "batch_id": batch_id,
-                    "department_id": department_ids[department],
-                    "feedback_text": row["feedback_text"],
-                })
+                .insert(response_row)
                 .execute()
             )
             response_id = _returned_id(response)
@@ -235,10 +255,11 @@ def save_predictions(results, *, batch_name="Survey upload", client=None):
             raise RuntimeError("Could not confirm the completed row count.")
 
     except Exception as error:
+        code = str(getattr(error, "code", ""))
         permission_hint = (
             " Supabase denied write access (42501). Check that you are signed in and "
             "that the auth/RLS migration has been run."
-            if str(getattr(error, "code", "")) == "42501" else ""
+            if code == "42501" else ""
         )
         if batch_id is None:
             raise RuntimeError(
@@ -267,7 +288,10 @@ def save_predictions(results, *, batch_name="Survey upload", client=None):
         raise RuntimeError(
             f"Saving failed. Removed batch {batch_id} and its "
             "responses/predictions. Shared department/category references were kept. "
-            "Check the connection, schema and that you are signed in."
+            + ("The database has no responses.survey_date column yet (PGRST204): run "
+               "supabase/migrations/20261025120000_survey_date.sql."
+               if code == "PGRST204" else
+               "Check the connection, schema and that you are signed in.")
         ) from None
 
     return batch_id, len(records)

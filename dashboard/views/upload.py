@@ -17,7 +17,7 @@ st.markdown(
 st.caption("Sentiment uses the saved model. Topic categories currently use keyword matching.")
 st.info(
     "Upload and review the results, then click Save to Supabase to store them in your account. "
-    "Saved responses count towards the month you save them; the CSV `date` is only used in this preview."
+    "Each response counts towards the month of its CSV `date`; rows without a valid date count towards today."
 )
 
 template = pd.DataFrame(
