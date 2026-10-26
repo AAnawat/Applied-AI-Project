@@ -1,0 +1,14 @@
+.git
+.venv
+.claude
+**/__pycache__
+*.pyc
+.env
+.env.*
+.streamlit/secrets.toml
+reports/
+outputs/
+categorization/results/
+categorization/data/finetuning/
+categorization/finetuning/
+tests/

@@ -1,0 +1,43 @@
+# Streamlit dashboard + Ollama (Typhoon) on one CPU-only server. See README "Deploy with Docker".
+services:
+  ollama:
+    image: ollama/ollama:0.40.11
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: "-1"  # keep Typhoon loaded so uploads don't wait for a reload
+    volumes:
+      - ollama:/root/.ollama
+    # No published port: only the app container can reach Ollama
+    cpus: 6
+    mem_limit: 5g
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # One-shot: downloads the model on first start, a quick no-op afterwards
+  ollama-pull:
+    image: ollama/ollama:0.40.11
+    environment:
+      OLLAMA_HOST: ollama:11434
+    entrypoint: ["ollama", "pull", "hf.co/typhoon-ai/typhoon2.5-qwen3-4b-gguf:Q4_K_M"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./.streamlit/secrets.toml:/app/.streamlit/secrets.toml:ro
+    mem_limit: 1.5g
+    depends_on:
+      ollama-pull:
+        condition: service_completed_successfully
+
+volumes:
+  ollama:

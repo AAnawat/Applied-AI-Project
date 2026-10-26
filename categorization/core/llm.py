@@ -94,10 +94,15 @@ def categorize_one(text, *, model=DEFAULT_MODEL, host=DEFAULT_HOST, examples=(),
             "raw_output": content}
 
 
-def categorize(texts, *, model=DEFAULT_MODEL, host=DEFAULT_HOST, few_shot=False, timeout=120):
+def categorize(texts, *, model=DEFAULT_MODEL, host=DEFAULT_HOST, few_shot=False, timeout=120, progress=None):
+    """progress, if given, is called as progress(done, total) after each row."""
     series = clean_feedback(texts)
     examples = FEW_SHOT_EXAMPLES if few_shot else ()
-    rows = [categorize_one(text, model=model, host=host, examples=examples, timeout=timeout) for text in series]
+    rows = []
+    for text in series:
+        rows.append(categorize_one(text, model=model, host=host, examples=examples, timeout=timeout))
+        if progress is not None:
+            progress(len(rows), len(series))
     return pd.DataFrame(rows, index=series.index,
                         columns=["category", "category_valid", "category_seconds", "raw_output"])
 

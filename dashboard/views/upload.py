@@ -66,8 +66,17 @@ try:
     analysis_key = (upload_key, tuple(settings.items()))
     cached = st.session_state.get("upload_analysis")
     if cached is None or cached["key"] != analysis_key:
-        with st.spinner("Analyzing sentiment and topics with Local LLM..."):
-            predictions = classify(df["feedback"], **settings)
+        # The LLM takes seconds per row on CPU, so show per-row progress instead of a bare spinner
+        status = st.empty()
+        with status.container():
+            st.caption("Stay on this page until analysis finishes; leaving or refreshing restarts it.")
+            bar = st.progress(0.0, text=f"Analyzing topics with Local LLM: 0 / {len(df):,} responses")
+
+        def show_progress(done, total):
+            bar.progress(done / total, text=f"Analyzing topics with Local LLM: {done:,} / {total:,} responses")
+
+        predictions = classify(df["feedback"], **settings, progress=show_progress)
+        status.empty()
         st.session_state["upload_analysis"] = {
             "key": analysis_key, "predictions": predictions.copy(),
         }

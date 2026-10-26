@@ -48,11 +48,11 @@ def cached_sentiment_model():
     return load_model()
 
 
-def classify(texts: pd.Series, *, model=DEFAULT_MODEL, host=DEFAULT_HOST, timeout=120) -> pd.DataFrame:
+def classify(texts: pd.Series, *, model=DEFAULT_MODEL, host=DEFAULT_HOST, timeout=120, progress=None) -> pd.DataFrame:
     result = predict_sentiment(texts, cached_sentiment_model())
 
     try:
-        topics = categorize(texts, model=model, host=host, timeout=timeout, few_shot=False)
+        topics = categorize(texts, model=model, host=host, timeout=timeout, few_shot=False, progress=progress)
     except (RuntimeError, ValueError, OSError) as error:
         raise TopicCategorizationError(
             f"Could not analyze topics with Local LLM ({model}). "

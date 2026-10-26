@@ -59,6 +59,13 @@ class CategorizeTest(unittest.TestCase):
         self.assertEqual(calls[0]["format"]["properties"]["category"]["enum"], CODES)
         self.assertEqual(calls[0]["options"]["temperature"], 0)
 
+    def test_reports_progress_after_each_row(self):
+        post, _ = fake_chat(['{"category": "compensation"}', '{"category": "workload"}'])
+        seen = []
+        with patch("categorization.core.llm._post", post):
+            categorize(["เงินเดือนน้อย", "งานเยอะ"], progress=lambda done, total: seen.append((done, total)))
+        self.assertEqual(seen, [(1, 2), (2, 2)])
+
     def test_timeout_and_bad_server_responses_are_actionable(self):
         with patch("categorization.core.llm.urllib.request.urlopen", side_effect=TimeoutError("timed out")):
             with self.assertRaisesRegex(RuntimeError, "Cannot reach Ollama"):

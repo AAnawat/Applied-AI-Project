@@ -258,6 +258,35 @@ python -m sentiment.predict --input categorized.csv --dry-run
 python -m categorization.cmd.evaluate --exam climatelens_105
 ```
 
+## Deploy with Docker
+
+`docker-compose.yml` runs the dashboard and Ollama together on one server (tested on an
+Ubuntu 24.04 VM with 8 vCPU, 8 GB RAM, no GPU). Ollama is capped at 6 CPUs and 5 GB so
+other services keep some headroom, and it is not published on any port: only the app
+container can reach it.
+
+1. Copy the repository to the server, plus the two files Git does not track:
+   `models/sentiment.joblib` and `.streamlit/secrets.toml`.
+2. In `.streamlit/secrets.toml`, point the app at the Ollama container:
+
+   ```toml
+   ollama_host = "http://ollama:11434"
+   ```
+
+3. Build and start everything from the repository root. The first start downloads the
+   Typhoon model (about 2.5 GB); later starts reuse it:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+4. Open `http://<server-ip>:8501`. `docker compose ps` should show `app` as healthy.
+
+All services restart automatically after a reboot. On a CPU without a GPU, topic analysis
+takes a few seconds per response (3.6 s/row on the 8-vCPU test VM), and the Upload page
+shows per-row progress. Use `docker compose logs -f app` to follow the app's log, and
+`docker compose up -d --build app` after pulling new code.
+
 ## Use from Python
 
 ```python
