@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 
 from auth import client
-from classifier import TopicCategorizationError, classify, topic_settings
+from classifier import TopicCategorizationError, classify, override_allowed, topic_override, topic_settings
 from climate import load_saved_responses
 from sentiment.storage import save_predictions
 
@@ -15,6 +15,10 @@ st.markdown(
     "Optional: `department`, `date`."
 )
 st.caption("Sentiment uses the saved model. Topics use the Local LLM in zero-shot mode.")
+if override_allowed():
+    override = topic_override()
+    server = f"custom server {override['host']} ({override['model']})" if override else "default Local LLM server"
+    st.page_link("views/settings.py", label=f"Topics: {server} · Change in Settings")
 st.info(
     "Upload and review the results, then click Save to Supabase to store them in your account. "
     "Each response counts towards the month of its CSV `date`; rows without a valid date count towards today."
@@ -90,7 +94,8 @@ except (ValueError, FileNotFoundError):
     st.error("Could not load or run the sentiment model. Check models/sentiment.joblib and the package versions used to export it.")
     st.stop()
 
-st.success(f"Analyzed {len(df):,} responses." + (f" Skipped {skipped} empty rows." if skipped else ""))
+st.success(f"Analyzed {len(df):,} responses." + (f" Skipped {skipped} empty rows." if skipped else "")
+           + f" Topics by {settings['model']} at {settings['host']}.")
 c1, c2, c3 = st.columns(3)
 c1.metric("Departments", df["department"].nunique(), help=", ".join(sorted(df["department"].unique())), border=True)
 c2.metric("Months", df["month"].nunique(), f"{df['month'].min()} → {df['month'].max()}", delta_color="off", border=True)

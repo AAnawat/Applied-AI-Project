@@ -107,6 +107,21 @@ def categorize(texts, *, model=DEFAULT_MODEL, host=DEFAULT_HOST, few_shot=False,
                         columns=["category", "category_valid", "category_seconds", "raw_output"])
 
 
+def list_models(host=DEFAULT_HOST, timeout=10):
+    """Return the names of the models pulled on an Ollama server."""
+    request = urllib.request.Request(host.rstrip("/") + "/api/tags")
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            models = json.loads(response.read().decode("utf-8")).get("models", [])
+    except urllib.error.HTTPError as error:
+        raise RuntimeError(f"Ollama returned HTTP {error.code}.") from None
+    except (urllib.error.URLError, OSError) as error:
+        raise RuntimeError(f"Cannot reach Ollama at {host} ({error}).") from None
+    except (json.JSONDecodeError, AttributeError):
+        raise RuntimeError("Ollama returned an invalid model list.") from None
+    return [entry["name"] for entry in models if isinstance(entry, dict) and isinstance(entry.get("name"), str)]
+
+
 def loaded_model_memory(model, host=DEFAULT_HOST):
     """Return Ollama's reported total and VRAM bytes for a loaded model, or None."""
     request = urllib.request.Request(host.rstrip("/") + "/api/ps")

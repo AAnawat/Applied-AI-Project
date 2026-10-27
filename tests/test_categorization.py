@@ -3,6 +3,7 @@
 import json
 import tempfile
 import unittest
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -10,7 +11,7 @@ import pandas as pd
 
 from categorization.core.exam import few_shot_overlap, join, load_answer_key, load_exam
 from categorization.core.examples import FEW_SHOT_EXAMPLES
-from categorization.core.llm import _post, build_messages, categorize, parse_category
+from categorization.core.llm import _post, build_messages, categorize, list_models, parse_category
 from categorization.core.paths import EXAMS_DIR
 from categorization.core.scoring import INVALID, score
 from categorization.core.taxonomy import CODES
@@ -76,6 +77,25 @@ class CategorizeTest(unittest.TestCase):
             ):
                 with self.assertRaisesRegex(RuntimeError, "invalid chat response"):
                     categorize(["test"])
+
+    def test_list_models_returns_pulled_model_names(self):
+        class Reply(BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        body = json.dumps({"models": [{"name": "typhoon:4b", "size": 1}, {"size": 2}, "junk"]}).encode()
+        with patch("categorization.core.llm.urllib.request.urlopen", return_value=Reply(body)) as urlopen:
+            self.assertEqual(list_models("http://10.0.0.5:11434/"), ["typhoon:4b"])
+        self.assertEqual(urlopen.call_args.args[0].full_url, "http://10.0.0.5:11434/api/tags")
+        with patch("categorization.core.llm.urllib.request.urlopen", side_effect=TimeoutError("timed out")):
+            with self.assertRaisesRegex(RuntimeError, "Cannot reach Ollama"):
+                list_models("http://10.0.0.5:11434")
+        with patch("categorization.core.llm.urllib.request.urlopen", return_value=Reply(b"not json")):
+            with self.assertRaisesRegex(RuntimeError, "invalid model list"):
+                list_models("http://10.0.0.5:11434")
 
     def test_few_shot_adds_example_turns(self):
         post, calls = fake_chat(['{"category": "other"}'])

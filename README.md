@@ -248,6 +248,19 @@ computer. The app server must be able to reach its Ollama service; configure
 `ollama_host` for a trusted server if the two run on different machines. Do not expose
 an unprotected Ollama endpoint publicly.
 
+### Switching the Ollama server from the app
+
+With `allow_llm_override = true` in secrets, the sidebar gets a **Settings** page. Type
+another Ollama server's address (for example a team member's PC with a GPU), click
+**Check server** to list the models it has pulled, pick one and **Save**. Only your
+session changes: other users keep the default, and signing out or refreshing resets it.
+The Upload page links to Settings and names the server that analyzed each file.
+
+The Streamlit server makes these requests, so the other machine must accept connections
+from it, not from your browser. On that machine, start Ollama with `OLLAMA_HOST=0.0.0.0:11434`
+and allow inbound TCP 11434 from the app server only. Settings accepts private and loopback
+addresses only (such as `10.x.x.x` or `192.168.x.x`), never internet or link-local ones.
+
 See [categorization/README.md](categorization/README.md) for the exam/answer-key
 evaluation layout. Categorize a CSV, then pass it to the sentiment command, which
 keeps the `category` column:

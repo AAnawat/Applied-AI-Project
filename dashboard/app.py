@@ -3,6 +3,7 @@
 import streamlit as st
 
 from auth import current_user, login_form, logout
+from classifier import override_allowed
 from climate import MIN_RESPONSES, get_data
 
 st.set_page_config(page_title="ClimateLens", page_icon="", layout="wide")
@@ -12,15 +13,16 @@ user = current_user()
 if user is None:
     login_form()
 
-pages = st.navigation(
-    [
-        st.Page("views/overview.py", title="Overview", icon="", default=True),
-        st.Page("views/departments.py", title="Departments", icon=""),
-        st.Page("views/trends.py", title="Trends", icon=""),
-        st.Page("views/feedback.py", title="Feedback Explorer", icon=""),
-        st.Page("views/upload.py", title="Upload & Analyze", icon=""),
-    ]
-)
+views = [
+    st.Page("views/overview.py", title="Overview", icon="", default=True),
+    st.Page("views/departments.py", title="Departments", icon=""),
+    st.Page("views/trends.py", title="Trends", icon=""),
+    st.Page("views/feedback.py", title="Feedback Explorer", icon=""),
+    st.Page("views/upload.py", title="Upload & Analyze", icon=""),
+]
+if override_allowed():
+    views.append(st.Page("views/settings.py", title="Settings", icon=""))
+pages = st.navigation(views)
 
 with st.sidebar:
     st.title("ClimateLens")
