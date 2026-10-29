@@ -1,0 +1,350 @@
+% ClimateLens — คู่มือทดลองใช้และติดตั้ง (Group 1)
+% Build:  xelatex ClimateLens-Guide.tex   (run twice for figure numbers)
+% If private.tex exists (gitignored), the grader login and our Supabase keys are filled in;
+% otherwise the PDF says where to find them. make_private.py writes private.tex.
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{fontspec}
+\usepackage[a4paper,margin=2.3cm,footskip=1.2cm]{geometry}
+\usepackage{float,graphicx,xcolor,enumitem,fancyhdr,caption,booktabs,array,tabularx}
+\usepackage{fvextra}
+\usepackage[most]{tcolorbox}
+\usepackage[hidelinks]{hyperref}
+
+\setmainfont{Sarabun}[
+  Path=fonts/, Extension=.ttf,
+  UprightFont=*-Regular, BoldFont=*-Bold,
+  ItalicFont=*-Italic, BoldItalicFont=*-BoldItalic,
+  Scale=1.05]
+\setmonofont{Latin Modern Mono}[Scale=1.0]
+\XeTeXlinebreaklocale "th"
+\XeTeXlinebreakskip = 0pt plus 1pt
+\linespread{1.25}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+
+\definecolor{accent}{HTML}{E8763A}
+\definecolor{codebg}{HTML}{F5F5F2}
+\definecolor{notebg}{HTML}{FFF4EC}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[C]{\small ClimateLens · Group 1 · 06016474 Applied AI for IT \quad \thepage}
+
+\captionsetup{font={it,small},labelsep=space}
+\renewcommand{\figurename}{รูปที่}
+\renewcommand{\tablename}{ตารางที่}
+\renewcommand{\contentsname}{สารบัญ}
+
+\setlist[enumerate,1]{label=\arabic*.,leftmargin=*,itemsep=3pt}
+\setlist[enumerate,2]{label=\alph*.,itemsep=1pt}
+\setlist[itemize]{itemsep=2pt}
+
+% Section titles in the style of the course labs: "ส่วนที่ 1: ..."
+\makeatletter
+\renewcommand\section{\@startsection{section}{1}{0pt}{14pt plus 4pt}{6pt}{\Large\bfseries}}
+\renewcommand\subsection{\@startsection{subsection}{2}{0pt}{10pt plus 3pt}{4pt}{\large\bfseries}}
+\renewcommand\thesection{ส่วนที่ \arabic{section}:}
+\renewcommand\thesubsection{\arabic{section}.\arabic{subsection}}
+\makeatother
+
+% Code blocks: ASCII only. Macros (\GraderEmail ...) expand inside them.
+\DefineVerbatimEnvironment{code}{Verbatim}{breaklines,fontsize=\small,commandchars=\\\{\}}
+\tcbset{codebox/.style={colback=codebg,colframe=codebg,boxrule=0pt,arc=2pt,left=6pt,right=6pt,top=3pt,bottom=3pt}}
+\newenvironment{codeblock}{\begin{tcolorbox}[codebox]}{\end{tcolorbox}}
+\newtcolorbox{note}{colback=notebg,colframe=accent,boxrule=0pt,leftrule=3pt,arc=0pt,left=8pt,top=4pt,bottom=4pt}
+
+\newcommand{\ui}[1]{\textbf{#1}}          % a button or menu name
+\newcommand{\file}[1]{\texttt{#1}}
+\newcommand{\fig}[3][0.85]{%              % \fig[width]{file}{caption}
+  \begin{figure}[H]\centering
+  \IfFileExists{figures/#2}{\fbox{\includegraphics[width=#1\linewidth]{figures/#2}}}%
+    {\fbox{\parbox[c][3cm][c]{#1\linewidth}{\centering (ภาพ #2)}}}%
+  \caption{#3}\end{figure}}
+
+% ----- Values that must not be in the public repo -----
+\newif\ifprivate
+\IfFileExists{private.tex}{\input{private.tex}\privatetrue}{%
+  \newcommand{\GraderEmail}{\textrm{(ดูในข้อความที่ส่งใน Google Classroom)}}
+  \newcommand{\GraderPassword}{\textrm{(ดูในข้อความที่ส่งใน Google Classroom)}}
+  \newcommand{\SupaURL}{https://<project-ref>.supabase.co}
+  \newcommand{\SupaKey}{sb\_publishable\_...}}
+
+\newcommand{\AppURL}{http://ito.it.kmitl.ac.th:8501}
+\newcommand{\AppIP}{http://10.70.38.15:8501}
+\newcommand{\Typhoon}{hf.co/typhoon-ai/typhoon2.5-qwen3-4b-gguf:Q4\_K\_M}
+
+\begin{document}
+
+\begin{center}
+  {\LARGE\bfseries ClimateLens}\\[2pt]
+  {\large คู่มือทดลองใช้งานและติดตั้งระบบ}\\[6pt]
+  {\small Group 1 — Anawat Wongprachanukul 66070217 · Amorntep Thongplum 66070219 ·
+   Pubeth Sriwattana 66070158 · Teerapat Tuanpromrat 66070093}
+\end{center}
+
+ClimateLens รับความคิดเห็นปลายเปิดภาษาไทยจากแบบสำรวจพนักงาน (CSV) แล้ว
+(1) จำแนก\ui{ความรู้สึก} (Positive / Neutral / Negative)
+(2) จัด\ui{หัวข้อ} 7 หมวดด้วย LLM ที่รันบนเครื่องเอง
+(3) คำนวณ \ui{Climate Index} แยกตามหัวข้อ แผนก และเดือน แล้วแสดงบน Dashboard
+
+เลือกวิธีทดลองได้ 3 แบบ เรียงจากเร็วที่สุด:
+
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}l X l@{}}
+\toprule
+\textbf{วิธี} & \textbf{ต้องมี} & \textbf{เวลา} \\
+\midrule
+ส่วนที่ 2: ใช้เว็บที่ deploy แล้ว & เบราว์เซอร์ + เครือข่ายคณะ IT & 2 นาที \\
+ส่วนที่ 3: รันบนเครื่องตัวเอง (ใช้ฐานข้อมูลของกลุ่ม) & Python 3.12, Ollama & 20–30 นาที \\
+ส่วนที่ 4: ติดตั้งทั้งระบบ (Supabase ของผู้ทดสอบเอง) & + บัญชี Supabase & 45–60 นาที \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+% =====================================================================
+\section{ภาพรวมระบบและผลของโมเดล}
+
+\begin{enumerate}
+  \item \ui{Upload CSV} — คอลัมน์ \file{feedback} (บังคับ), \file{department}, \file{date} (\file{YYYY-MM-DD})
+  \item \ui{Sentiment} — Character TF-IDF (2–5 ตัวอักษร) + Logistic Regression
+        เทรนบน Wisesight Sentiment Corpus (\file{models/sentiment.joblib})
+  \item \ui{Topic} — Typhoon 2.5 (Qwen3 4B) แบบ zero-shot รันผ่าน Ollama
+        ความคิดเห็นไม่ถูกส่งไป LLM บนคลาวด์
+  \item \ui{Save} — เก็บลง Supabase (PostgreSQL) แยกข้อมูลรายผู้ใช้ด้วย Row Level Security
+  \item \ui{Dashboard} — Climate Index $= 50 + 50\,(P-N)/T$;
+        $\ge 60$ Healthy, 45–60 Watch, $<45$ Needs attention; กลุ่มที่มีน้อยกว่า 10 ความเห็นไม่แสดงสถานะ
+\end{enumerate}
+
+\begin{table}[h!]\centering\small
+\caption{ผลการประเมินโมเดล (ตัวเลขเดียวกับสไลด์นำเสนอ)}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{งาน} & \textbf{ชุดทดสอบ} & \textbf{Accuracy} & \textbf{Macro F1} \\
+\midrule
+Sentiment (โมเดลที่ใช้) & Wisesight test 2,614 แถว & 69.7\% & 0.668 \\
+Sentiment baseline (ตอบ Neutral ทุกแถว) & Wisesight test 2,614 แถว & 55.6\% & 0.238 \\
+Topic — Typhoon 4B zero-shot (ที่ใช้ในแอป) & ข้อสอบ 105 ข้อ (7 หมวด × 15) & 86.7\% & 0.867 \\
+Topic — Typhoon 4B few-shot & ข้อสอบ 105 ข้อ & 87.6\% & 0.886 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{note}
+\textbf{ข้อจำกัดที่ทราบ:} โมเดล Sentiment เทรนจากโพสต์โซเชียลมีเดีย แต่ใช้กับข้อความในที่ทำงาน
+(Positive F1 = 0.52) จึงมักอ่านความเห็นเชิงบวกเป็น Neutral — จะเห็นได้ในไฟล์ทดลองด้านล่าง
+\end{note}
+
+% =====================================================================
+\section{ทดลองบนเว็บที่ deploy แล้ว}
+
+\begin{note}
+เว็บอยู่บน VM ของคณะ เข้าได้จาก\textbf{เครือข่ายคณะ IT / VPN ของ KMITL เท่านั้น}
+\end{note}
+
+\begin{enumerate}
+  \item เปิด \url{http://ito.it.kmitl.ac.th:8501} (หรือ \url{http://10.70.38.15:8501})
+  \item เข้าสู่ระบบด้วยบัญชีทดลอง
+    \begin{enumerate}
+      \item Email: \texttt{\GraderEmail}
+      \item Password: \texttt{\GraderPassword}
+    \end{enumerate}
+  \item บัญชีนี้มีข้อมูลตัวอย่าง 258 ความเห็น (พ.ค.–ต.ค. 2026, 3 แผนก) ดูได้ทันทีที่หน้า
+        \ui{Overview}, \ui{Departments}, \ui{Trends}, \ui{Feedback Explorer}
+  \item ทดลองอัปโหลด: ไปที่ \ui{Upload \& Analyze} แล้วเลือกไฟล์จากโฟลเดอร์ \file{demo/try/}
+    \begin{enumerate}
+      \item \file{climatelens\_grader\_5.csv} — 5 แถว ประมาณ 20 วินาที
+      \item \file{climatelens\_demo\_live\_10.csv} — 10 แถว ประมาณ 40 วินาที
+    \end{enumerate}
+  \item ตรวจผลในตาราง แล้วกด \ui{Save to Supabase} (ไม่บังคับ) จากนั้นกด
+        \ui{Use this data in the dashboard} เพื่อดูไฟล์ที่เพิ่งอัปโหลดบน Dashboard
+\end{enumerate}
+
+\fig[0.5]{app01-login.png}{หน้าเข้าสู่ระบบ}
+\fig[0.72]{app02-overview.png}{หน้า Overview: Climate Index แยกแผนก × หัวข้อ}
+\fig[0.72]{app03-upload.png}{หน้า Upload \& Analyze หลังวิเคราะห์ไฟล์ 5 แถว}
+
+\begin{note}
+\textbf{เรื่องที่ควรสังเกต:} Climate Index รวมของ 3 เดือนล่าสุดคือ 53.9 (ดูปกติ) แต่ช่อง Production × Workload ได้ 31 (สีแดง)
+— นี่คือเหตุผลที่ต้องแยก Climate Index ตามหัวข้อ
+\end{note}
+
+% =====================================================================
+\section{รันบนเครื่องตัวเอง (ใช้ฐานข้อมูลของกลุ่ม)}
+
+ใช้ Supabase ของกลุ่ม จึงไม่ต้องตั้งค่าฐานข้อมูล เข้าสู่ระบบด้วยบัญชีทดลองเดียวกับส่วนที่ 2
+
+\subsection{ติดตั้งโปรแกรม}
+\begin{enumerate}
+  \item ติดตั้ง Python 3.12 (\url{https://www.python.org/downloads/})
+  \item ติดตั้ง Ollama (\url{https://ollama.com/download}) แล้วเปิดโปรแกรมทิ้งไว้
+  \item ดาวน์โหลดโมเดล Typhoon (ประมาณ 2.5 GB, ใช้ RAM ราว 4 GB):
+\begin{codeblock}\begin{code}
+ollama pull hf.co/typhoon-ai/typhoon2.5-qwen3-4b-gguf:Q4_K_M
+\end{code}
+\end{codeblock}
+  \item แตกไฟล์ \file{group\_01.zip} หรือ clone repository:
+\begin{codeblock}\begin{code}
+git clone https://github.com/AAnawat/Applied-AI-Project.git
+cd Applied-AI-Project
+\end{code}
+\end{codeblock}
+  \item สร้าง virtual environment และติดตั้ง package (รันที่โฟลเดอร์หลักของโปรเจกต์)
+\begin{codeblock}\begin{code}
+python -m venv .venv
+.venv\textbackslash{}Scripts\textbackslash{}activate        (Windows)
+source .venv/bin/activate      (macOS / Linux)
+pip install -r requirements.txt
+\end{code}
+\end{codeblock}
+\end{enumerate}
+
+\subsection{ตั้งค่าการเชื่อมต่อ}
+\begin{enumerate}
+  \item คัดลอก \file{.streamlit/secrets.toml.example} เป็น \file{.streamlit/secrets.toml}
+  \item แก้สองบรรทัดแรกเป็นค่าของกลุ่ม:
+\begin{codeblock}\begin{code}
+supabase_url = "\SupaURL"
+supabase_key = "\SupaKey"
+\end{code}
+\end{codeblock}
+\ifprivate\else ค่าจริงของทั้งสองบรรทัดอยู่ในข้อความที่ส่งใน Google Classroom\fi
+\end{enumerate}
+
+\begin{note}
+\file{supabase\_key} นี้คือ \textbf{Publishable key} ซึ่ง Supabase ออกแบบให้เปิดเผยได้ (ฝังอยู่ในหน้าเว็บทั่วไป)
+ข้อมูลถูกป้องกันด้วย Row Level Security — ผู้ใช้แต่ละคนเห็นเฉพาะข้อมูลของตัวเอง
+ส่วน \textbf{Secret key} ไม่ได้แจกให้ และแอปจะปฏิเสธถ้าใส่ Secret key
+\end{note}
+
+\subsection{เปิดแอป}
+\begin{enumerate}
+  \item รันจาก\textbf{โฟลเดอร์หลักของโปรเจกต์} (ไม่ใช่ใน \file{dashboard/}):
+\begin{codeblock}\begin{code}
+python -m streamlit run dashboard/app.py
+\end{code}
+\end{codeblock}
+  \item เปิด \url{http://localhost:8501} แล้วเข้าสู่ระบบด้วยบัญชีทดลอง
+  \item ทดลองอัปโหลดตามข้อ 4–5 ของส่วนที่ 2
+\end{enumerate}
+
+% =====================================================================
+\section{ติดตั้งทั้งระบบด้วย Supabase ของตัวเอง}
+
+ใช้เมื่อต้องการฐานข้อมูลแยกของตัวเองทั้งหมด ทำส่วนที่ 3.1 ให้เสร็จก่อน
+
+\subsection{สร้างโปรเจกต์ Supabase}
+\begin{enumerate}
+  \item สร้างโปรเจกต์ใหม่ตาม Lab 12 Section 1 (\ui{New project}, Region: Singapore, เปิด \ui{Enable Data API})
+\end{enumerate}
+\fig{sb01-new-project.png}{ปุ่ม New project ในหน้า Projects}
+
+\subsection{สร้างตารางด้วย SQL}
+\begin{enumerate}
+  \item ไปที่เมนู \ui{SQL Editor} แล้วกด \ui{+ New}
+  \item เปิดไฟล์ต่อไปนี้ทีละไฟล์ \textbf{ตามลำดับ} คัดลอกทั้งไฟล์ไปวาง แล้วกด \ui{Run}
+    \begin{enumerate}
+      \item \file{supabase/schema.sql} — ตาราง, view และสิทธิ์
+      \item \file{supabase/migrations/20261025000000\_auth\_rls.sql} — เจ้าของข้อมูล + Row Level Security
+      \item \file{supabase/migrations/20261025120000\_survey\_date.sql} — วันที่ของแบบสำรวจ
+    \end{enumerate}
+  \item แต่ละไฟล์ต้องขึ้น \texttt{Success. No rows returned}
+\end{enumerate}
+\fig{sb02-sql-editor.png}{SQL Editor: วาง SQL แล้วกด Run}
+
+\begin{note}
+ไฟล์ที่ 2 มีตัวแปร \file{owner\_email} ไว้ย้ายข้อมูลเก่า — โปรเจกต์ใหม่ยังไม่มีข้อมูล \textbf{ไม่ต้องแก้}
+\end{note}
+
+\subsection{ตั้งค่าการเข้าสู่ระบบ}
+\begin{enumerate}
+  \item ไปที่ \ui{Authentication} → \ui{Sign In / Providers}
+  \item เปิด \ui{Allow new users to sign up} ถ้าต้องการให้สมัครเองได้จากแท็บ \ui{Register} ในแอป
+  \item ปิด \ui{Confirm email} (ระบบส่งอีเมลของ Supabase ส่งได้ไม่กี่ฉบับต่อชั่วโมง) แล้วกด \ui{Save changes}
+\end{enumerate}
+\fig{sb05-auth-signups.png}{Authentication → Sign In / Providers}
+
+\subsection{สร้างผู้ใช้}
+\begin{enumerate}
+  \item ไปที่ \ui{Authentication} → \ui{Users} → \ui{Add user} → \ui{Create new user}
+  \item กรอก Email และ Password, ติ๊ก \ui{Auto confirm user?} แล้วกด \ui{Create user}
+\end{enumerate}
+\fig{sb06-add-user-menu.png}{เมนู Add user → Create new user}
+\fig[0.4]{sb07-create-user.png}{ฟอร์มสร้างผู้ใช้ (ติ๊ก Auto confirm user)}
+
+\subsection{คัดลอก URL และ Publishable key}
+\begin{enumerate}
+  \item ไปที่ \ui{Project Settings} → \ui{Data API} คัดลอก \ui{API URL}
+        แล้ว\textbf{ตัด \file{/rest/v1/} ท้ายออก} ให้เหลือ \file{https://<project-ref>.supabase.co}
+  \item ไปที่ \ui{Project Settings} → \ui{API Keys} คัดลอก \ui{Publishable key}
+        (\file{sb\_publishable\_...}) — \textbf{ห้ามใช้ Secret key}
+  \item ใส่ทั้งสองค่าใน \file{.streamlit/secrets.toml} ตามส่วนที่ 3.2 แล้วเปิดแอปตามส่วนที่ 3.3
+\end{enumerate}
+\fig{sb04-data-api-url.png}{Data API: API URL}
+\fig{sb03-api-keys.png}{API Keys: ใช้ Publishable key เท่านั้น}
+
+\subsection{ใส่ข้อมูลตัวอย่าง}
+\begin{enumerate}
+  \item เข้าสู่ระบบในแอปด้วยผู้ใช้ที่สร้างในข้อ 4.4
+  \item หน้า \ui{Upload \& Analyze}: อัปโหลดไฟล์ใน \file{demo/history/} ทีละเดือน (พ.ค. → ต.ค.)
+        แล้วกด \ui{Save to Supabase} ทุกไฟล์
+  \item ใช้\textbf{ไฟล์รายเดือน 6 ไฟล์ หรือ ไฟล์รวม 258 แถว อย่างใดอย่างหนึ่ง} — ถ้าใช้ทั้งคู่ข้อมูลจะซ้ำ
+\end{enumerate}
+
+\begin{note}
+เวลาวิเคราะห์หัวข้อด้วย CPU: ประมาณ 1.3–3.6 วินาที/แถว (ไฟล์รายเดือน 43 แถว ≈ 1–2.5 นาที)
+ถ้ารีเฟรชหน้าระหว่างวิเคราะห์ จะต้องเริ่มไฟล์นั้นใหม่
+\end{note}
+
+% =====================================================================
+\section{Deploy บนเซิร์ฟเวอร์ด้วย Docker}
+
+ใช้ \file{docker-compose.yml} รันแอป + Ollama บนเครื่องเดียว (ทดสอบบน Ubuntu 24.04, 8 vCPU, 8 GB RAM, ไม่มี GPU)
+
+\begin{enumerate}
+  \item คัดลอกโปรเจกต์ไปที่เซิร์ฟเวอร์ และสร้าง \file{.streamlit/secrets.toml} ตามส่วนที่ 3.2
+  \item เพิ่มบรรทัดนี้ใน \file{secrets.toml} ให้แอปคุยกับ container ของ Ollama:
+\begin{codeblock}\begin{code}
+ollama_host = "http://ollama:11434"
+\end{code}
+\end{codeblock}
+  \item รันที่โฟลเดอร์หลักของโปรเจกต์ (ครั้งแรกจะดาวน์โหลดโมเดล 2.5 GB):
+\begin{codeblock}\begin{code}
+docker compose up -d --build
+docker compose ps
+\end{code}
+\end{codeblock}
+  \item \file{docker compose ps} ต้องแสดง \file{app} เป็น \file{healthy}
+  \item เปิด \texttt{http://<server-ip>:8501}
+\end{enumerate}
+
+% =====================================================================
+\section{ปัญหาที่พบบ่อย}
+
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.44\linewidth} >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{ข้อความที่เห็น} & \textbf{วิธีแก้} \\
+\midrule
+\texttt{Set supabase\_url and supabase\_key in .streamlit/secrets.toml}
+  & ยังไม่ได้สร้าง \file{secrets.toml} หรือรันจากโฟลเดอร์ \file{dashboard/} — รันจากโฟลเดอร์หลัก \\\addlinespace[3pt]
+\texttt{The configured Supabase key is a Secret/service\_role key}
+  & ใส่ Secret key ผิดช่อง — เปลี่ยนเป็น Publishable key \\\addlinespace[3pt]
+\texttt{Wrong email or password.}
+  & ตรวจบัญชี หรือยังไม่ได้ติ๊ก Auto confirm ตอนสร้างผู้ใช้ \\\addlinespace[3pt]
+\texttt{Could not analyze topics with Local LLM}
+  & Ollama ไม่ได้เปิด หรือยังไม่ได้ \texttt{ollama pull} โมเดล \\\addlinespace[3pt]
+\texttt{Missing `feedback` column}
+  & CSV ต้องมีหัวคอลัมน์ \file{feedback} และบันทึกเป็น UTF-8 \\\addlinespace[3pt]
+\texttt{Please remove result columns before analyzing}
+  & ลบคอลัมน์ \file{sentiment} / \file{category} ออกจาก CSV \\\addlinespace[3pt]
+บันทึกไม่ได้ (code \texttt{42501})
+  & ยังไม่ได้รัน SQL ไฟล์ที่ 2 (\file{auth\_rls}) \\\addlinespace[3pt]
+บันทึกไม่ได้ (code \texttt{PGRST204})
+  & ยังไม่ได้รัน SQL ไฟล์ที่ 3 (\file{survey\_date}) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\end{document}

@@ -12,3 +12,5 @@ categorization/results/
 categorization/data/finetuning/
 categorization/finetuning/
 tests/
+docs/
+demo/

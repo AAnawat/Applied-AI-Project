@@ -10,3 +10,7 @@ reports/
 outputs/
 # Reviewed feedback, prepared splits and model outputs stay local by default.
 categorization/data/finetuning/
+
+# Guide build output and the private (grader login) inputs
+docs/guide/build/
+docs/guide/private.tex

@@ -8,7 +8,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# models/sentiment.joblib is not in Git: put it in models/ before building.
+# models/sentiment.joblib is in Git and is copied in with the rest of the code.
 # .streamlit/secrets.toml is mounted at run time by docker-compose.yml, never baked in.
 COPY --chown=app . .
 USER app
